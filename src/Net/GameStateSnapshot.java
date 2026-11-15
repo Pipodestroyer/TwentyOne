@@ -36,6 +36,25 @@ public class GameStateSnapshot {
         }
     }
 
+    public static class PlayedTrumpView {
+        public final String name;
+        public final String description;
+        public final String type;
+        public final String ownerName;
+        public final boolean mine;
+        public final boolean activeContinuous;
+
+        public PlayedTrumpView(String name, String description, String type,
+                               String ownerName, boolean mine, boolean activeContinuous) {
+            this.name = name;
+            this.description = description;
+            this.type = type;
+            this.ownerName = ownerName;
+            this.mine = mine;
+            this.activeContinuous = activeContinuous;
+        }
+    }
+
     public String myName;
     public String enemyName;
     public int myChips;
@@ -58,6 +77,7 @@ public class GameStateSnapshot {
     public List<TrumpView> myTrumps = new ArrayList<>();
     public List<String> myContinuousTrumps = new ArrayList<>();
     public List<String> enemyContinuousTrumps = new ArrayList<>();
+    public List<PlayedTrumpView> playedTrumps = new ArrayList<>();
     public String summaryWinner = "";
     public String summaryReason = "";
     public int summaryMyDelta;
@@ -137,6 +157,25 @@ public class GameStateSnapshot {
             s.myContinuousTrumps.add(tc.getName());
         }
 
+        List<config.PlayedTrumpRecord> history = config.getPlayedTrumpsHistory();
+        for (config.PlayedTrumpRecord rec : history) {
+            boolean isMine = viewer.getName() != null && viewer.getName().equals(rec.ownerName);
+            player ownerPlayer = isMine ? viewer : enemy;
+            trumpCard tc = trumpCard.getTrump(rec.name);
+            boolean activeCont = "CONTINUOUS".equals(rec.type)
+                    && ownerPlayer != null
+                    && tc != null
+                    && ownerPlayer.hasTrumpInUse(tc);
+            s.playedTrumps.add(new PlayedTrumpView(
+                    rec.name,
+                    rec.description,
+                    rec.type,
+                    rec.ownerName,
+                    isMine,
+                    activeCont
+            ));
+        }
+
         config.RoundSummary rs = config.getLastRoundSummary();
         if (rs != null) {
             s.summaryWinner = rs.winnerName != null ? rs.winnerName : "";
@@ -202,7 +241,20 @@ public class GameStateSnapshot {
         sb.append(b64(summaryReason)).append('|');
         sb.append(summaryMyDelta).append('|');
         sb.append(summaryEnemyDelta).append('|');
-        sb.append(summaryBless);
+        sb.append(summaryBless).append('|');
+
+        StringBuilder playedSb = new StringBuilder();
+        for (int i = 0; i < playedTrumps.size(); i++) {
+            if (i > 0) playedSb.append(';');
+            PlayedTrumpView pt = playedTrumps.get(i);
+            playedSb.append(b64(pt.name)).append(',')
+                    .append(b64(pt.description)).append(',')
+                    .append(b64(pt.type)).append(',')
+                    .append(b64(pt.ownerName)).append(',')
+                    .append(pt.mine).append(',')
+                    .append(pt.activeContinuous);
+        }
+        sb.append(playedSb);
         return sb.toString();
     }
 
@@ -283,7 +335,26 @@ public class GameStateSnapshot {
         s.summaryReason = unb64(parts[idx++]);
         s.summaryMyDelta = Integer.parseInt(parts[idx++]);
         s.summaryEnemyDelta = Integer.parseInt(parts[idx++]);
-        s.summaryBless = Boolean.parseBoolean(parts[idx]);
+        s.summaryBless = Boolean.parseBoolean(parts[idx++]);
+        if (idx < parts.length) {
+            String playedRaw = parts[idx];
+            if (!playedRaw.isEmpty()) {
+                for (String item : playedRaw.split(";")) {
+                    if (item.isEmpty()) continue;
+                    String[] pp = item.split(",");
+                    if (pp.length >= 6) {
+                        s.playedTrumps.add(new PlayedTrumpView(
+                                unb64(pp[0]),
+                                unb64(pp[1]),
+                                unb64(pp[2]),
+                                unb64(pp[3]),
+                                Boolean.parseBoolean(pp[4]),
+                                Boolean.parseBoolean(pp[5])
+                        ));
+                    }
+                }
+            }
+        }
         return s;
     }
 }

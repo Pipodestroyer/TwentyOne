@@ -56,6 +56,10 @@ public class player {
         return sum;
     }
 
+    public boolean isBusted() {
+        return getTotalNumberSum() > config.getNumberCardScore();
+    }
+
     public int getVisibleNumberSum(player viewer) {
         int sum = 0;
         for (numberCard nc : numberCards) {
@@ -118,6 +122,7 @@ public class player {
 
         player opponent = config.getOpponentOf(this);
         trump.getEffect().apply(this, opponent);
+        config.recordPlayedTrump(this, trump);
 
         if (trump.getType() == trumpType.CONTINUOUS) {
             trumpsInUse.add(trump);
@@ -132,6 +137,10 @@ public class player {
     public void removeTrumpInUse(trumpCard trump) { trumpsInUse.remove(trump); }
 
     public void drawNumber() {
+        if (isBusted()) {
+            config.setLastActionMessage(this.name + " ya se paso de " + config.getNumberCardScore() + " y no puede comer mas cartas.");
+            return;
+        }
         numberCard drawn = numberCard.getRandom();
         if (drawn != null) {
             if (trumpCard.trumpChance()) {

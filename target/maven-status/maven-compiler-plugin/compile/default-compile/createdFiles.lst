@@ -12,6 +12,7 @@ Main.class
 UI\GameTableView.class
 Game\numberCard.class
 UI\PixelUI$PixelCheckBox.class
+Net\GameStateSnapshot$PlayedTrumpView.class
 Net\P2PManager$2.class
 Net\LanDiscoveryService$DiscoveredHost.class
 Net\GameStateSnapshot$TrumpView.class
@@ -25,6 +26,7 @@ UI\PixelUI.class
 Game\config.class
 Game\TrumpAtribs\trumpType.class
 UI\LobbyView.class
+Game\config$PlayedTrumpRecord.class
 Net\LanDiscoveryService.class
 UI\MainMenuView.class
 UI\LobbyView$1.class

@@ -228,22 +228,16 @@ public class MainMenuView extends StackPane {
         optionsOverlay = new StackPane();
         optionsOverlay.setStyle("-fx-background-color: rgba(255, 255, 255, 0.85);");
 
-        VBox box = new VBox(12);
+        VBox box = new VBox(14);
         box.setAlignment(Pos.CENTER_LEFT);
-        box.setMaxWidth(440);
-        box.setMaxHeight(455);
-        box.setPadding(new Insets(24));
+        box.setMaxWidth(420);
+        box.setMaxHeight(280);
+        box.setPadding(new Insets(26));
         box.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #101010; -fx-border-width: 3;");
 
         Label title = PixelUI.label("OPCIONES", 22, true);
         Label nameLbl = PixelUI.label("NOMBRE DEL JUGADOR:", 13, true);
-        TextField nameField = PixelUI.pixelField(app.getPlayerName(), 360);
-
-        Label railwayLbl = PixelUI.label("SERVIDOR RAILWAY (URL):", 13, true);
-        TextField railwayField = PixelUI.pixelField(app.getRailwayServerUrl(), 360);
-
-        Label portLbl = PixelUI.label("PUERTO TCP P2P LAN (DEFECTO 7777):", 13, true);
-        TextField portField = PixelUI.pixelField(String.valueOf(app.getDefaultPort()), 160);
+        TextField nameField = PixelUI.pixelField(app.getPlayerName(), 340);
 
         PixelUI.PixelCheckBox borderlessCheck = new PixelUI.PixelCheckBox("Ventana sin bordes", app.isBorderless());
 
@@ -262,29 +256,13 @@ public class MainMenuView extends StackPane {
                 errorLbl.setText("El nombre no puede estar vacio.");
                 return;
             }
-            String newUrl = railwayField.getText().trim();
-            if (newUrl.isEmpty()) {
-                errorLbl.setText("Ingresa una URL valida de Railway (o 127.0.0.1:8080).");
-                return;
-            }
-            try {
-                int p = Integer.parseInt(portField.getText().trim());
-                if (p < 1024 || p > 65535) {
-                    errorLbl.setText("Puerto debe estar entre 1024 y 65535.");
-                    return;
-                }
-                app.setPlayerName(newName);
-                app.setRailwayServerUrl(newUrl);
-                app.setDefaultPort(p);
-                app.setBorderless(borderlessCheck.isSelected());
-                closeOptions();
-            } catch (NumberFormatException _) {
-                errorLbl.setText("Puerto invalido.");
-            }
+            app.setPlayerName(newName);
+            app.setBorderless(borderlessCheck.isSelected());
+            closeOptions();
         });
 
         actions.getChildren().addAll(cancelBtn, saveBtn);
-        box.getChildren().addAll(title, nameLbl, nameField, railwayLbl, railwayField, portLbl, portField, borderlessCheck, errorLbl, actions);
+        box.getChildren().addAll(title, nameLbl, nameField, borderlessCheck, errorLbl, actions);
         optionsOverlay.getChildren().add(box);
         getChildren().add(optionsOverlay);
     }

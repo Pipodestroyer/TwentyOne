@@ -4,6 +4,10 @@ import Game.config;
 import Net.GameStateSnapshot;
 import Net.P2PManager;
 import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.RotateTransition;
+import javafx.animation.ScaleTransition;
+import javafx.animation.SequentialTransition;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -44,6 +48,7 @@ public class GameTableView extends StackPane {
 
     private HBox enemyCardsRow;
     private HBox continuousTrumpsRow;
+    private Label trumpHoverBanner;
     private HBox myCardsRow;
 
     private Label roundInfoLabel;
@@ -67,6 +72,9 @@ public class GameTableView extends StackPane {
     private StackPane disconnectOverlay;
     private GameStateSnapshot currentSnapshot;
     private String lastRenderedKey;
+    private int lastRenderedPlayedTrumpsCount = 0;
+    private int lastRenderedRound = -1;
+    private boolean wasRoundOver = false;
 
     public GameTableView(TwentyOneApp app, P2PManager p2pManager) {
         this.app = app;
@@ -170,27 +178,39 @@ public class GameTableView extends StackPane {
     }
 
     private VBox buildCenterTable() {
-        VBox center = new VBox(14);
+        VBox center = new VBox(10);
         center.setAlignment(Pos.CENTER);
         center.setPadding(new Insets(10, 16, 10, 16));
 
         enemyCardsRow = new HBox(12);
         enemyCardsRow.setAlignment(Pos.CENTER);
-        enemyCardsRow.setMinHeight(165);
+        enemyCardsRow.setMinHeight(160);
 
-        // Horizontal continuous trump cards zone in center (like sketch's horizontal card)
+        // Center zone where played trump cards drop onto the table
+        VBox centerTrumpsZone = new VBox(4);
+        centerTrumpsZone.setAlignment(Pos.CENTER);
+
         continuousTrumpsRow = new HBox(10);
         continuousTrumpsRow.setAlignment(Pos.CENTER);
-        continuousTrumpsRow.setMinHeight(64);
-        continuousTrumpsRow.setMaxWidth(520);
-        continuousTrumpsRow.setPadding(new Insets(6, 12, 6, 12));
-        continuousTrumpsRow.setStyle("-fx-border-color: #101010; -fx-border-width: 1; -fx-background-color: #FFFFFF;");
+        continuousTrumpsRow.setMinHeight(94);
+        continuousTrumpsRow.setMaxWidth(620);
+        continuousTrumpsRow.setPadding(new Insets(4, 10, 4, 10));
+
+        trumpHoverBanner = PixelUI.label("", 11.5, true);
+        trumpHoverBanner.setWrapText(true);
+        trumpHoverBanner.setMaxWidth(580);
+        trumpHoverBanner.setMinHeight(22);
+        trumpHoverBanner.setStyle("-fx-text-fill: #101010; -fx-background-color: #FFFFFF; "
+                + "-fx-border-color: #101010; -fx-border-width: 1; -fx-padding: 3 8 3 8;");
+        trumpHoverBanner.setVisible(false);
+
+        centerTrumpsZone.getChildren().addAll(continuousTrumpsRow, trumpHoverBanner);
 
         myCardsRow = new HBox(12);
         myCardsRow.setAlignment(Pos.CENTER);
-        myCardsRow.setMinHeight(165);
+        myCardsRow.setMinHeight(160);
 
-        center.getChildren().addAll(enemyCardsRow, continuousTrumpsRow, myCardsRow);
+        center.getChildren().addAll(enemyCardsRow, centerTrumpsZone, myCardsRow);
         return center;
     }
 
@@ -208,7 +228,7 @@ public class GameTableView extends StackPane {
         actionMsgLabel.setMaxWidth(205);
 
         drawBtn = PixelUI.invertedButton("COMER CARTA", 13, 185, 42);
-        standBtn = PixelUI.pixelButton("PLANTARSE", 13, 185, 42);
+        standBtn = PixelUI.pixelButton("SALTAR / PLANTARSE", 13, 185, 42);
 
         drawBtn.setOnAction(_ -> p2pManager.performLocalDraw());
         standBtn.setOnAction(_ -> p2pManager.performLocalStand());
@@ -329,6 +349,12 @@ public class GameTableView extends StackPane {
         lastRenderedKey = key;
         this.currentSnapshot = s;
 
+        if (s.roundNumber != lastRenderedRound) {
+            lastRenderedRound = s.roundNumber;
+            lastRenderedPlayedTrumpsCount = 0;
+            wasRoundOver = false;
+        }
+
         // Left counters
         int hiddenCount = s.getEnemyHiddenCount();
         int enemyVisSum = s.getEnemyVisibleSum();
@@ -353,19 +379,21 @@ public class GameTableView extends StackPane {
             betTextLabel.setText("APUESTA EN MESA: " + s.sharedBet);
         }
 
-        // Enemy Cards Row (Black ? hidden card + Red Hearts visible cards)
+        // Enemy Cards Row (Black ? hidden card + Red Hearts visible cards; flip reveal on roundOver)
+        boolean justRevealed = s.roundOver && !wasRoundOver;
         enemyCardsRow.getChildren().clear();
         for (GameStateSnapshot.CardView cv : s.enemyCards) {
-            Image img;
             if (cv.number < 0) {
-                img = AssetManager.getEnemyHiddenCard(3);
+                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getEnemyHiddenCard(3)));
+            } else if (cv.hiddenCard && justRevealed) {
+                enemyCardsRow.getChildren().add(makeFlipRevealCardNode(cv.number));
             } else if (cv.hiddenCard) {
-                img = AssetManager.getPlayerHiddenNumberCard(cv.number, 3);
+                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getPlayerHiddenNumberCard(cv.number, 3)));
             } else {
-                img = AssetManager.getEnemyVisibleNumberCard(cv.number, 3);
+                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getEnemyVisibleNumberCard(cv.number, 3)));
             }
-            enemyCardsRow.getChildren().add(makeCardNode(img));
         }
+        wasRoundOver = s.roundOver;
 
         // Player Cards Row (Black hidden card + Blue Diamonds visible cards)
         myCardsRow.getChildren().clear();
@@ -376,18 +404,17 @@ public class GameTableView extends StackPane {
             myCardsRow.getChildren().add(makeCardNode(img));
         }
 
-        // Continuous Trumps Row
+        // Dropped Trump Cards in Center Table with drop animation & hover explanation
         continuousTrumpsRow.getChildren().clear();
-        if (s.myContinuousTrumps.isEmpty() && s.enemyContinuousTrumps.isEmpty()) {
-            continuousTrumpsRow.getChildren().add(PixelUI.label("SIN EFECTOS CONTINUOS EN MESA", 11, false));
-        } else {
-            for (String name : s.enemyContinuousTrumps) {
-                continuousTrumpsRow.getChildren().add(makeContinuousBadge(name, false));
-            }
-            for (String name : s.myContinuousTrumps) {
-                continuousTrumpsRow.getChildren().add(makeContinuousBadge(name, true));
-            }
+        trumpHoverBanner.setVisible(false);
+        trumpHoverBanner.setText("");
+        int totalPlayed = s.playedTrumps.size();
+        for (int i = 0; i < totalPlayed; i++) {
+            GameStateSnapshot.PlayedTrumpView pt = s.playedTrumps.get(i);
+            boolean animateDrop = i >= lastRenderedPlayedTrumpsCount;
+            continuousTrumpsRow.getChildren().add(makeDroppedTrumpNode(pt, i, animateDrop));
         }
+        lastRenderedPlayedTrumpsCount = totalPlayed;
 
         // Right controls
         roundInfoLabel.setText("RONDA " + s.roundNumber + " (META: " + s.targetScore + ")");
@@ -401,9 +428,10 @@ public class GameTableView extends StackPane {
         actionMsgLabel.setText(s.lastActionMessage);
 
         boolean canAct = s.myTurn && !s.roundOver && !s.gameOver;
-        drawBtn.setDisable(!canAct);
+        boolean isBusted = s.getMyTotalSum() > s.targetScore;
+        drawBtn.setDisable(!canAct || isBusted);
         standBtn.setDisable(!canAct);
-        drawBtn.setOpacity(canAct ? 1.0 : 0.4);
+        drawBtn.setOpacity((canAct && !isBusted) ? 1.0 : 0.35);
         standBtn.setOpacity(canAct ? 1.0 : 0.4);
 
         // Round summary / game over box
@@ -442,6 +470,24 @@ public class GameTableView extends StackPane {
         return iv;
     }
 
+    private ImageView makeFlipRevealCardNode(int revealedNumber) {
+        ImageView iv = new ImageView(AssetManager.getEnemyHiddenCard(3));
+        iv.setSmooth(false);
+        iv.setPreserveRatio(true);
+
+        ScaleTransition shrink = new ScaleTransition(Duration.millis(150), iv);
+        shrink.setFromX(1.0);
+        shrink.setToX(0.0);
+        shrink.setOnFinished(_ -> iv.setImage(AssetManager.getPlayerHiddenNumberCard(revealedNumber, 3)));
+
+        ScaleTransition expand = new ScaleTransition(Duration.millis(150), iv);
+        expand.setFromX(0.0);
+        expand.setToX(1.0);
+
+        new SequentialTransition(shrink, expand).play();
+        return iv;
+    }
+
     private void renderChipRow(FlowPane pane, int count, Image chipImg) {
         pane.getChildren().clear();
         int visualCount = Math.min(count, 12);
@@ -455,23 +501,56 @@ public class GameTableView extends StackPane {
         }
     }
 
-    private HBox makeContinuousBadge(String trumpName, boolean isMine) {
-        String colorHex = isMine ? "#19498A" : "#B82535";
-        String ownerTag = isMine ? "TU" : "RIVAL";
-        HBox box = new HBox(6);
-        box.setAlignment(Pos.CENTER_LEFT);
-        box.setPadding(new Insets(4, 8, 4, 8));
-        box.setStyle("-fx-background-color: " + colorHex + "; -fx-border-color: #101010; -fx-border-width: 1;");
+    private StackPane makeDroppedTrumpNode(GameStateSnapshot.PlayedTrumpView pt, int index, boolean animateDrop) {
+        String borderColor = pt.mine ? "#19498A" : "#B82535";
+        StackPane cardFrame = new StackPane();
+        cardFrame.setPadding(new Insets(3));
+        cardFrame.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: " + borderColor + "; -fx-border-width: 2;");
+        cardFrame.setCursor(Cursor.HAND);
 
-        ImageView mini = new ImageView(AssetManager.getTrumpCardImage(trumpName, 1));
-        mini.setSmooth(false);
+        if ("CONTINUOUS".equals(pt.type) && !pt.activeContinuous) {
+            cardFrame.setOpacity(0.42);
+        }
 
-        Label txt = new Label(trumpName + " (" + ownerTag + ")");
-        txt.setFont(PixelUI.font(11));
-        txt.setStyle("-fx-text-fill: #FFFFFF;");
+        ImageView iv = new ImageView(AssetManager.getTrumpCardImage(pt.name, 2));
+        iv.setSmooth(false);
+        iv.setPreserveRatio(true);
+        iv.setFitHeight(82);
+        cardFrame.getChildren().add(iv);
 
-        box.getChildren().addAll(mini, txt);
-        return box;
+        double restAngle = ((index % 3) - 1) * 3.5;
+        cardFrame.setRotate(restAngle);
+
+        if (animateDrop) {
+            TranslateTransition drop = new TranslateTransition(Duration.millis(240), cardFrame);
+            drop.setFromY(pt.mine ? 55.0 : -55.0);
+            drop.setToY(0.0);
+
+            ScaleTransition scale = new ScaleTransition(Duration.millis(240), cardFrame);
+            scale.setFromX(1.4);
+            scale.setFromY(1.4);
+            scale.setToX(1.0);
+            scale.setToY(1.0);
+
+            RotateTransition rot = new RotateTransition(Duration.millis(240), cardFrame);
+            rot.setFromAngle(pt.mine ? -12.0 : 12.0);
+            rot.setToAngle(restAngle);
+
+            new ParallelTransition(drop, scale, rot).play();
+        }
+
+        String ownerTag = pt.mine ? "TU" : pt.ownerName.toUpperCase();
+        cardFrame.setOnMouseEntered(_ -> {
+            cardFrame.setTranslateY(-6);
+            trumpHoverBanner.setText("[" + ownerTag + "] " + pt.name + ": " + pt.description);
+            trumpHoverBanner.setVisible(true);
+        });
+        cardFrame.setOnMouseExited(_ -> {
+            cardFrame.setTranslateY(0);
+            trumpHoverBanner.setVisible(false);
+            trumpHoverBanner.setText("");
+        });
+        return cardFrame;
     }
 
     private void renderTrumpDrawer(GameStateSnapshot s, boolean canAct) {

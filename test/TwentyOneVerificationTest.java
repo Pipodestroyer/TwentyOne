@@ -97,6 +97,36 @@ public class TwentyOneVerificationTest {
         p1.addTrump(trumpCard.getTrump("Perfect Draw"));
         p1.useTrump(trumpCard.getTrump("Perfect Draw"));
         assertEquals(21, p1.getTotalNumberSum());
+
+        // Verify played trumps history & GameStateSnapshot roundtrip
+        assertFalse(config.getPlayedTrumpsHistory().isEmpty());
+        GameStateSnapshot snap = GameStateSnapshot.fromGameFor(p1);
+        assertEquals(config.getPlayedTrumpsHistory().size(), snap.playedTrumps.size());
+        GameStateSnapshot decoded = GameStateSnapshot.deserialize(snap.serialize());
+        assertEquals(snap.playedTrumps.size(), decoded.playedTrumps.size());
+        assertEquals("Perfect Draw", decoded.playedTrumps.getLast().name);
+        assertFalse(decoded.playedTrumps.getLast().description.isEmpty());
+
+        // Verify busted player (> targetScore) is prohibited from drawing more cards
+        p1.getNumberCards().clear();
+        numberCard.getPool().clear();
+        for (int i = 1; i <= 11; i++) numberCard.addToPool((byte) i);
+        p1.addNumber((byte) 11);
+        p1.addNumber((byte) 10);
+        p1.addNumber((byte) 2); // total 23 > 21
+        assertTrue(p1.isBusted());
+        int countBefore = p1.getNumberCards().size();
+        p1.drawNumber();
+        assertEquals(countBefore, p1.getNumberCards().size(), "No debe poder robar si ya se paso de 21");
+
+        // Verify both skipping without playing trump cards immediately ends the round
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), p1, p2);
+        config.startRound();
+        assertFalse(config.isRoundOver());
+        config.getCurrentPlayer().keepHand();
+        assertFalse(config.isRoundOver());
+        config.getCurrentPlayer().keepHand();
+        assertTrue(config.isRoundOver(), "Si ambos saltan sin jugar comodines debe terminar la ronda");
     }
 
     @Test

@@ -1,5 +1,7 @@
 package Game;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
@@ -25,6 +27,21 @@ public class config {
     private static boolean roundOver;
     private static String lastActionMessage = "";
     private static RoundSummary lastRoundSummary;
+    private static final List<PlayedTrumpRecord> playedTrumpsHistory = new ArrayList<>();
+
+    public static class PlayedTrumpRecord {
+        public final String name;
+        public final String description;
+        public final String type;
+        public final String ownerName;
+
+        public PlayedTrumpRecord(String name, String description, String type, String ownerName) {
+            this.name = name;
+            this.description = description;
+            this.type = type;
+            this.ownerName = ownerName;
+        }
+    }
 
     public static class RoundSummary {
         public final String winnerName;
@@ -94,6 +111,7 @@ public class config {
         numberCardScore = (byte) 21;
         roundOver = false;
         lastRoundSummary = null;
+        playedTrumpsHistory.clear();
         lastActionMessage = "Partida iniciada.";
         Game.trumpCard.setPool(trumpCardPool);
         refillNumberPool();
@@ -151,6 +169,20 @@ public class config {
     public static void setLastActionMessage(String msg) { lastActionMessage = msg != null ? msg : ""; }
 
     public static RoundSummary getLastRoundSummary() { return lastRoundSummary; }
+
+    public static void recordPlayedTrump(player owner, trumpCard trump) {
+        if (owner == null || trump == null) return;
+        playedTrumpsHistory.add(new PlayedTrumpRecord(
+                trump.getName(),
+                trump.getDescription() != null ? trump.getDescription() : "",
+                trump.getType() != null ? trump.getType().name() : "INSTANTANEOUS",
+                owner.getName() != null ? owner.getName() : ""
+        ));
+    }
+
+    public static List<PlayedTrumpRecord> getPlayedTrumpsHistory() {
+        return new ArrayList<>(playedTrumpsHistory);
+    }
 
     // Methods
 
@@ -238,6 +270,7 @@ public class config {
         numberCardScore = (byte) 21;
         roundOver = false;
         lastRoundSummary = null;
+        playedTrumpsHistory.clear();
         resetStoodState();
         if (player1 != null) player1.setPersonalBet(originalBet);
         if (player2 != null) player2.setPersonalBet(originalBet);
@@ -376,6 +409,7 @@ public class config {
         player1.getNumberCards().clear();
         player2.getTrumpsInUse().clear();
         player2.getNumberCards().clear();
+        playedTrumpsHistory.clear();
         resetStoodState();
         refillNumberPool();
 

@@ -662,8 +662,10 @@ public class P2PManager {
                 }
             } else if (!config.isRoundOver() && config.isInGame() && config.getCurrentPlayer() == actor) {
                 if ("DRAW".equals(cmd)) {
-                    actor.drawNumber();
-                    changed = true;
+                    if (!actor.isBusted()) {
+                        actor.drawNumber();
+                        changed = true;
+                    }
                 } else if ("STAND".equals(cmd)) {
                     actor.keepHand();
                     changed = true;

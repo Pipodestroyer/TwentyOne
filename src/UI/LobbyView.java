@@ -71,7 +71,7 @@ public class LobbyView extends StackPane {
             app.showMainMenu();
         });
 
-        Label titleLbl = PixelUI.label("MULTIJUGADOR (RAILWAY + P2P LAN)", 20, true);
+        Label titleLbl = PixelUI.label("MULTIJUGADOR (ONLINE + LAN)", 20, true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Label playerLbl = PixelUI.label("JUGADOR: " + app.getPlayerName().toUpperCase(), 14, true);
@@ -116,12 +116,9 @@ public class LobbyView extends StackPane {
 
         Label header = PixelUI.label("HOSTEAR PARTIDA (TUS REGLAS)", 15.5, true);
 
-        // Mode toggles: Railway by default, toggleable to LAN P2P
+        // Mode toggles: Online by default, toggleable to LAN P2P
         PixelUI.PixelCheckBox lanModeCheck = pixelCheckBox("Modo LAN (Red Local P2P)", false);
         PixelUI.PixelCheckBox publicRoomCheck = pixelCheckBox("Partida Publica (visible en buscador)", true);
-
-        Label modeInfo = PixelUI.label("Railway: " + P2PManager.normalizeHttpUrl(app.getRailwayServerUrl()), 11.5, false);
-        modeInfo.setWrapText(true);
 
         // Judges
         Label judgeTitle = PixelUI.label("JUEZ (marca varios para aleatorio):", 12.5, true);
@@ -145,26 +142,16 @@ public class LobbyView extends StackPane {
         PixelUI.PixelCheckBox c11 = pixelCheckBox("11", false);
         chipsRow.getChildren().addAll(c5, c7, c9, c11);
 
-        // Port & Create button
-        HBox portRow = new HBox(10);
-        portRow.setAlignment(Pos.CENTER_LEFT);
-        portRow.setPadding(new Insets(4, 0, 0, 0));
-        Label portLbl = PixelUI.label("PUERTO LAN:", 12.5, true);
-        TextField hostPortField = PixelUI.pixelField(String.valueOf(app.getDefaultPort()), 80);
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button createBtn = PixelUI.invertedButton("CREAR SALA", 14.5, 150, 40);
+        // Create button
+        HBox actionRow = new HBox(10);
+        actionRow.setAlignment(Pos.CENTER_RIGHT);
+        actionRow.setPadding(new Insets(4, 0, 0, 0));
+        Button createBtn = PixelUI.invertedButton("CREAR SALA", 14.5, 160, 40);
 
         Runnable syncModeUi = () -> {
             boolean isLan = lanModeCheck.isSelected();
             publicRoomCheck.setDisable(isLan);
             publicRoomCheck.setOpacity(isLan ? 0.45 : 1.0);
-            portLbl.setOpacity(isLan ? 1.0 : 0.45);
-            hostPortField.setDisable(!isLan);
-            hostPortField.setOpacity(isLan ? 1.0 : 0.45);
-            modeInfo.setText(isLan
-                    ? "Tu IP local LAN: " + getLocalIpSummary()
-                    : "Railway (" + P2PManager.normalizeHttpUrl(app.getRailwayServerUrl()) + ") - genera codigo 4 digitos");
         };
         lanModeCheck.setOnChanged(syncModeUi);
         syncModeUi.run();
@@ -196,14 +183,7 @@ public class LobbyView extends StackPane {
             GameRules rules = new GameRules(app.getPlayerName(), chosenJudge, chosenBet, chosenChips);
 
             if (lanModeCheck.isSelected()) {
-                int port;
-                try {
-                    port = Integer.parseInt(hostPortField.getText().trim());
-                } catch (NumberFormatException _) {
-                    feedbackLabel.setText("Puerto LAN invalido.");
-                    return;
-                }
-                startHostingLanRoom(rules, port);
+                startHostingLanRoom(rules, app.getDefaultPort());
             } else {
                 startHostingRailwayRoom(rules, publicRoomCheck.isSelected());
             }
@@ -212,14 +192,14 @@ public class LobbyView extends StackPane {
         Region vSpacer = new Region();
         VBox.setVgrow(vSpacer, Priority.ALWAYS);
 
-        portRow.getChildren().addAll(portLbl, hostPortField, spacer, createBtn);
+        actionRow.getChildren().add(createBtn);
         panel.getChildren().addAll(
-                header, lanModeCheck, publicRoomCheck, modeInfo,
+                header, lanModeCheck, publicRoomCheck,
                 judgeTitle, jHost, jBank, jMafia,
                 betTitle, betRow,
                 chipsTitle, chipsRow,
                 vSpacer,
-                portRow
+                actionRow
         );
         return panel;
     }
@@ -256,8 +236,8 @@ public class LobbyView extends StackPane {
         scroll.setStyle("-fx-background: #FFFFFF; -fx-background-color: #FFFFFF; "
                 + "-fx-border-color: #101010; -fx-border-width: 2;");
 
-        // Join by 4-digit Railway code
-        Label codeTitle = PixelUI.label("UNIRSE POR CODIGO RAILWAY (4 DIGITOS):", 12.5, true);
+        // Join by 4-digit room code
+        Label codeTitle = PixelUI.label("UNIRSE POR CODIGO (4 DIGITOS):", 12.5, true);
         HBox codeBox = new HBox(10);
         codeBox.setAlignment(Pos.CENTER_LEFT);
         TextField codeField = PixelUI.pixelField("", 120);
@@ -274,12 +254,11 @@ public class LobbyView extends StackPane {
         codeBox.getChildren().addAll(codeField, joinCodeBtn);
 
         // Direct LAN connect
-        Label manualTitle = PixelUI.label("CONEXION DIRECTA LAN (IP : PUERTO):", 12.5, true);
+        Label manualTitle = PixelUI.label("CONEXION DIRECTA LAN (IP):", 12.5, true);
         HBox manualBox = new HBox(10);
         manualBox.setAlignment(Pos.CENTER_LEFT);
-        TextField ipField = PixelUI.pixelField("127.0.0.1", 155);
-        TextField portField = PixelUI.pixelField(String.valueOf(app.getDefaultPort()), 75);
-        Button connectBtn = PixelUI.pixelButton("CONECTAR LAN", 12.5, 130, 34);
+        TextField ipField = PixelUI.pixelField("127.0.0.1", 190);
+        Button connectBtn = PixelUI.pixelButton("CONECTAR LAN", 12.5, 135, 34);
 
         connectBtn.setOnAction(_ -> {
             String ip = ipField.getText().trim();
@@ -287,15 +266,10 @@ public class LobbyView extends StackPane {
                 feedbackLabel.setText("Ingresa una IP valida.");
                 return;
             }
-            try {
-                int port = Integer.parseInt(portField.getText().trim());
-                connectAsLanClient(ip, port);
-            } catch (NumberFormatException _) {
-                feedbackLabel.setText("Puerto LAN invalido.");
-            }
+            connectAsLanClient(ip, app.getDefaultPort());
         });
 
-        manualBox.getChildren().addAll(ipField, portField, connectBtn);
+        manualBox.getChildren().addAll(ipField, connectBtn);
         panel.getChildren().addAll(header, scanHeaderRow, scroll, codeTitle, codeBox, manualTitle, manualBox);
         return panel;
     }
@@ -368,7 +342,7 @@ public class LobbyView extends StackPane {
 
         for (LanDiscoveryService.DiscoveredHost host : lanHosts) {
             HBox card = makeServerCard(
-                    "[LAN " + host.hostAddress + ":" + host.tcpPort + "] " + host.hostName,
+                    "[LAN " + host.hostAddress + "] " + host.hostName,
                     formatRules(host.idJudge, host.betMode, host.initialChips),
                     "#101010",
                     () -> connectAsLanClient(host.hostAddress, host.tcpPort)
@@ -410,14 +384,14 @@ public class LobbyView extends StackPane {
     }
 
     private void connectToRailwayCode(String code) {
-        feedbackLabel.setText("Conectando a sala Railway #" + code + "...");
+        feedbackLabel.setText("Conectando a sala #" + code + "...");
         stopAllScanning();
         app.ensureLocalRelayIfLocalhost();
         p2pManager.connectToRailwayRoom(app.getRailwayServerUrl(), code, app.getPlayerName(), createClientListener());
     }
 
     private void connectAsLanClient(String ip, int port) {
-        feedbackLabel.setText("Conectando via LAN a " + ip + ":" + port + "...");
+        feedbackLabel.setText("Conectando via LAN a " + ip + "...");
         stopAllScanning();
         p2pManager.connectToHost(ip, port, app.getPlayerName(), createClientListener());
     }
@@ -453,12 +427,11 @@ public class LobbyView extends StackPane {
     private void startHostingRailwayRoom(GameRules rules, boolean isPublic) {
         stopAllScanning();
         app.ensureLocalRelayIfLocalhost();
-        feedbackLabel.setText("Creando sala en Railway...");
+        feedbackLabel.setText("Creando sala online...");
         showWaitingOverlay(
                 "SALA ONLINE - ESPERANDO OPONENTE",
                 "CODIGO: ....",
-                "Servidor: " + P2PManager.normalizeHttpUrl(app.getRailwayServerUrl()) + "\n"
-                        + "Visibilidad: " + (isPublic ? "Publica en buscador" : "Privada (solo codigo)") + "\n"
+                "Visibilidad: " + (isPublic ? "Publica en buscador" : "Privada (solo codigo)") + "\n"
                         + formatRules(rules.idJudge, rules.betMode, rules.initialChips)
         );
         p2pManager.startRailwayHost(
@@ -469,7 +442,7 @@ public class LobbyView extends StackPane {
                     if (waitingCodeLabel != null) {
                         waitingCodeLabel.setText("CODIGO: " + code);
                     }
-                    feedbackLabel.setText("Sala Railway creada con codigo #" + code);
+                    feedbackLabel.setText("Sala online creada con codigo #" + code);
                 }),
                 createHostListener()
         );
@@ -483,7 +456,7 @@ public class LobbyView extends StackPane {
             showWaitingOverlay(
                     "SALA LAN CREADA - ESPERANDO OPONENTE",
                     null,
-                    "IP Local: " + getLocalIpSummary() + " | Puerto: " + boundPort + "\n"
+                    "IP Local: " + getLocalIpSummary() + "\n"
                             + formatRules(rules.idJudge, rules.betMode, rules.initialChips)
             );
         } catch (IOException e) {
