@@ -167,6 +167,7 @@ public class TwentyOneApp extends Application {
 
     public void showMainMenu() {
         shutdownNetworking();
+        SoundManager.playBgm();
         MainMenuView menu = new MainMenuView(this);
         rootContainer.getChildren().setAll(menu);
     }
@@ -232,4 +233,12 @@ public class TwentyOneApp extends Application {
     }
 
     public Stage getPrimaryStage() { return primaryStage; }
+
+    public double getVolume() {
+        return SoundManager.getVolume();
+    }
+
+    public void setVolume(double volume) {
+        SoundManager.setVolume(volume);
+    }
 }

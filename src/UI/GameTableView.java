@@ -4,6 +4,7 @@ import Game.config;
 import Net.GameStateSnapshot;
 import Net.P2PManager;
 import javafx.animation.Animation;
+import javafx.animation.AnimationTimer;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
@@ -15,16 +16,21 @@ import javafx.animation.SequentialTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
+import javafx.event.EventTarget;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -37,11 +43,56 @@ import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 public class GameTableView extends StackPane {
     private static final double DRAWER_BODY_HEIGHT = 188;
+    private static final double CARD_BASE_HEIGHT = 110.0;
+    private static final long VOID_TRIPLE_CLICK_WINDOW_MS = 900;
+
+    private static final Interpolator FRICTION_DECEL = new Interpolator() {
+        @Override
+        protected double curve(double t) {
+            double inv = 1.0 - t;
+            return 1.0 - (inv * inv * inv * inv);
+        }
+    };
+
+    private static final String[] DRAW_WORDS = {
+            "¿otra carta?", "¿te atreves?", "21 o nada", "el dealer mira...",
+            "riesgo puro", "una mas...", "¿sera un as?", "al limite",
+            "sin miedo", "tentando a la suerte", "pide otra...", "¿te pasaras?"
+    };
+
+    private static final String[] STAND_WORDS = {
+            "me planto...", "suficiente", "mano firme", "sin arriesgar",
+            "calma...", "que hable la mesa", "prudencia", "hasta aqui",
+            "¿bastara?", "cierro turno", "sangre fria", "a esperar..."
+    };
+
+    private static class CursorWordTracker {
+        final Label label;
+        final long birthNs;
+        final double offsetX;
+        final double offsetY;
+        double currentX;
+        double currentY;
+
+        CursorWordTracker(Label label, long birthNs, double startX, double startY, double offsetX, double offsetY) {
+            this.label = label;
+            this.birthNs = birthNs;
+            this.currentX = startX;
+            this.currentY = startY;
+            this.offsetX = offsetX;
+            this.offsetY = offsetY;
+        }
+    }
 
     private final TwentyOneApp app;
     private final P2PManager p2pManager;
+    private final Random random = new Random();
 
     private Label enemyScoreLabel;
     private Label enemyInfoLabel;
@@ -63,6 +114,7 @@ public class GameTableView extends StackPane {
     private Label actionMsgLabel;
     private Button drawBtn;
     private Button standBtn;
+    private VBox pauseIconBtn;
 
     private VBox roundResultBox;
     private Label roundResultTitle;
@@ -86,6 +138,15 @@ public class GameTableView extends StackPane {
     private Timeline gameOverTimeline;
     private int gameOverSecondsLeft;
     private ParallelTransition cardsExitAnim;
+
+    private double lastMouseX = 540.0;
+    private double lastMouseY = 340.0;
+    private int voidLeftClicks = 0;
+    private long lastVoidLeftClickMs = 0;
+    private int voidRightClicks = 0;
+    private long lastVoidRightClickMs = 0;
+    private final List<CursorWordTracker> activeCursorWords = new ArrayList<>();
+    private AnimationTimer cursorWordsTimer;
 
     private GameStateSnapshot currentSnapshot;
     private String lastRenderedKey;
@@ -116,7 +177,7 @@ public class GameTableView extends StackPane {
         tableLayout.setRight(buildRightColumn());
 
         // Top-right 3 horizontal pause bars
-        VBox pauseIconBtn = buildPauseIcon();
+        pauseIconBtn = buildPauseIcon();
         StackPane.setAlignment(pauseIconBtn, Pos.TOP_RIGHT);
         StackPane.setMargin(pauseIconBtn, new Insets(18, 22, 0, 0));
 
@@ -126,6 +187,7 @@ public class GameTableView extends StackPane {
         trumpDrawerZone.setTranslateY(DRAWER_BODY_HEIGHT);
 
         getChildren().addAll(tableLayout, pauseIconBtn, trumpDrawerZone);
+        setupVoidInteractionHandlers();
 
         sceneProperty().addListener((_, _, newScene) -> {
             if (newScene == null) {
@@ -210,7 +272,7 @@ public class GameTableView extends StackPane {
 
         enemyCardsRow = new HBox(12);
         enemyCardsRow.setAlignment(Pos.CENTER);
-        enemyCardsRow.setMinHeight(160);
+        enemyCardsRow.setMinHeight(120);
 
         // Center zone where played trump cards drop onto the table
         VBox centerTrumpsZone = new VBox(4);
@@ -218,7 +280,7 @@ public class GameTableView extends StackPane {
 
         continuousTrumpsRow = new HBox(10);
         continuousTrumpsRow.setAlignment(Pos.CENTER);
-        continuousTrumpsRow.setMinHeight(94);
+        continuousTrumpsRow.setMinHeight(120);
         continuousTrumpsRow.setMaxWidth(620);
         continuousTrumpsRow.setPadding(new Insets(4, 10, 4, 10));
 
@@ -234,7 +296,7 @@ public class GameTableView extends StackPane {
 
         myCardsRow = new HBox(12);
         myCardsRow.setAlignment(Pos.CENTER);
-        myCardsRow.setMinHeight(160);
+        myCardsRow.setMinHeight(120);
 
         center.getChildren().addAll(enemyCardsRow, centerTrumpsZone, myCardsRow);
         return center;
@@ -497,29 +559,29 @@ public class GameTableView extends StackPane {
         for (int i = 0; i < s.enemyCards.size(); i++) {
             GameStateSnapshot.CardView cv = s.enemyCards.get(i);
             boolean animateDeal = (i >= prevEnemyCount);
-            double dealDelay = animateDeal ? (i - prevEnemyCount) * 110.0 : 0.0;
+            double dealDelay = animateDeal ? (i - prevEnemyCount) * 120.0 : 0.0;
             if (cv.number < 0) {
-                enemyCardsRow.getChildren().add(makeDealerCardNode(AssetManager.getEnemyHiddenCard(3), animateDeal, dealDelay));
+                enemyCardsRow.getChildren().add(makeDealerCardNode(AssetManager.getEnemyHiddenCard(2), true, animateDeal, dealDelay));
             } else if (cv.hiddenCard && justRevealed) {
                 enemyCardsRow.getChildren().add(makeFlipRevealCardNode(cv.number));
             } else if (cv.hiddenCard) {
-                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getPlayerHiddenNumberCard(cv.number, 3)));
+                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getPlayerHiddenNumberCard(cv.number, 2)));
             } else {
-                enemyCardsRow.getChildren().add(makeDealerCardNode(AssetManager.getEnemyVisibleNumberCard(cv.number, 3), animateDeal, dealDelay));
+                enemyCardsRow.getChildren().add(makeDealerCardNode(AssetManager.getEnemyVisibleNumberCard(cv.number, 2), true, animateDeal, dealDelay));
             }
         }
         lastRenderedEnemyCardCount = s.enemyCards.size();
 
         myCardsRow.getChildren().clear();
-        double baseMyDelay = initialDealBatch ? s.enemyCards.size() * 110.0 : 0.0;
+        double baseMyDelay = initialDealBatch ? s.enemyCards.size() * 120.0 : 0.0;
         for (int i = 0; i < s.myCards.size(); i++) {
             GameStateSnapshot.CardView cv = s.myCards.get(i);
             boolean animateDeal = (i >= prevMyCount);
-            double dealDelay = animateDeal ? (baseMyDelay + (i - prevMyCount) * 110.0) : 0.0;
+            double dealDelay = animateDeal ? (baseMyDelay + (i - prevMyCount) * 120.0) : 0.0;
             Image img = cv.hiddenCard
-                    ? AssetManager.getPlayerHiddenNumberCard(cv.number, 3)
-                    : AssetManager.getPlayerVisibleNumberCard(cv.number, 3);
-            myCardsRow.getChildren().add(makeDealerCardNode(img, animateDeal, dealDelay));
+                    ? AssetManager.getPlayerHiddenNumberCard(cv.number, 2)
+                    : AssetManager.getPlayerVisibleNumberCard(cv.number, 2);
+            myCardsRow.getChildren().add(makeDealerCardNode(img, false, animateDeal, dealDelay));
         }
         lastRenderedMyCardCount = s.myCards.size();
 
@@ -527,35 +589,41 @@ public class GameTableView extends StackPane {
         trumpHoverBanner.setVisible(false);
         trumpHoverBanner.setText("");
         int totalPlayed = s.playedTrumps.size();
+        continuousTrumpsRow.setSpacing(totalPlayed > 5 ? Math.max(4.0, 10.0 - (totalPlayed - 5) * 1.5) : 10.0);
         for (int i = 0; i < totalPlayed; i++) {
             GameStateSnapshot.PlayedTrumpView pt = s.playedTrumps.get(i);
             boolean animateDrop = i >= lastRenderedPlayedTrumpsCount;
-            continuousTrumpsRow.getChildren().add(makeDroppedTrumpNode(pt, i, animateDrop));
+            continuousTrumpsRow.getChildren().add(makeDroppedTrumpNode(pt, i, totalPlayed, animateDrop));
         }
         lastRenderedPlayedTrumpsCount = totalPlayed;
     }
 
-    private ImageView makeDealerCardNode(Image img, boolean animateDeal, double delayMs) {
+    private ImageView makeDealerCardNode(Image img, boolean isEnemy, boolean animateDeal, double delayMs) {
         ImageView iv = makeCardNode(img);
         if (!animateDeal) {
             return iv;
         }
         double startX = Math.max(580.0, getWidth() > 0 ? getWidth() * 0.72 + 180.0 : 640.0);
+        double startY = isEnemy ? 42.0 : -42.0;
+        double startAngle = isEnemy ? 14.0 : -14.0;
         iv.setTranslateX(startX);
-        iv.setRotate(-6.0);
+        iv.setTranslateY(startY);
+        iv.setRotate(startAngle);
         iv.setOpacity(0.85);
 
-        TranslateTransition slide = new TranslateTransition(Duration.millis(320), iv);
+        TranslateTransition slide = new TranslateTransition(Duration.millis(580), iv);
         slide.setDelay(Duration.millis(delayMs));
         slide.setFromX(startX);
+        slide.setFromY(startY);
         slide.setToX(0.0);
-        slide.setInterpolator(Interpolator.EASE_OUT);
+        slide.setToY(0.0);
+        slide.setInterpolator(FRICTION_DECEL);
 
-        RotateTransition rot = new RotateTransition(Duration.millis(320), iv);
+        RotateTransition rot = new RotateTransition(Duration.millis(580), iv);
         rot.setDelay(Duration.millis(delayMs));
-        rot.setFromAngle(-6.0);
+        rot.setFromAngle(startAngle);
         rot.setToAngle(0.0);
-        rot.setInterpolator(Interpolator.EASE_OUT);
+        rot.setInterpolator(FRICTION_DECEL);
 
         FadeTransition fade = new FadeTransition(Duration.millis(180), iv);
         fade.setDelay(Duration.millis(delayMs));
@@ -570,6 +638,7 @@ public class GameTableView extends StackPane {
         ImageView iv = new ImageView(img);
         iv.setSmooth(false);
         iv.setPreserveRatio(true);
+        iv.setFitHeight(CARD_BASE_HEIGHT);
         return iv;
     }
 
@@ -635,17 +704,9 @@ public class GameTableView extends StackPane {
             return;
         }
         ParallelTransition exit = new ParallelTransition();
-        for (javafx.scene.Node row : new javafx.scene.Node[]{enemyCardsRow, continuousTrumpsRow, myCardsRow}) {
-            TranslateTransition down = new TranslateTransition(Duration.millis(380), row);
-            down.setFromY(0.0);
-            down.setToY(95.0);
-            down.setInterpolator(Interpolator.EASE_IN);
-
-            FadeTransition fade = new FadeTransition(Duration.millis(380), row);
-            fade.setFromValue(row.getOpacity());
-            fade.setToValue(0.0);
-            exit.getChildren().addAll(down, fade);
-        }
+        addRowExitAnimation(exit, enemyCardsRow, -95.0);
+        addRowExitAnimation(exit, continuousTrumpsRow, 0.0);
+        addRowExitAnimation(exit, myCardsRow, 95.0);
         cardsExitAnim = exit;
         exit.setOnFinished(_ -> {
             cardsExitAnim = null;
@@ -654,6 +715,18 @@ public class GameTableView extends StackPane {
             }
         });
         exit.play();
+    }
+
+    private void addRowExitAnimation(ParallelTransition exit, javafx.scene.Node row, double targetY) {
+        TranslateTransition move = new TranslateTransition(Duration.millis(380), row);
+        move.setFromY(0.0);
+        move.setToY(targetY);
+        move.setInterpolator(Interpolator.EASE_IN);
+
+        FadeTransition fade = new FadeTransition(Duration.millis(380), row);
+        fade.setFromValue(row.getOpacity());
+        fade.setToValue(0.0);
+        exit.getChildren().addAll(move, fade);
     }
 
     private void stopCardsExitAnim() {
@@ -833,17 +906,19 @@ public class GameTableView extends StackPane {
         stopRoundCountdown();
         stopGameOverCountdown();
         stopCardsExitAnim();
+        stopCursorWords();
     }
 
     private ImageView makeFlipRevealCardNode(int revealedNumber) {
-        ImageView iv = new ImageView(AssetManager.getEnemyHiddenCard(3));
+        ImageView iv = new ImageView(AssetManager.getEnemyHiddenCard(2));
         iv.setSmooth(false);
         iv.setPreserveRatio(true);
+        iv.setFitHeight(CARD_BASE_HEIGHT);
 
         ScaleTransition shrink = new ScaleTransition(Duration.millis(150), iv);
         shrink.setFromX(1.0);
         shrink.setToX(0.0);
-        shrink.setOnFinished(_ -> iv.setImage(AssetManager.getPlayerHiddenNumberCard(revealedNumber, 3)));
+        shrink.setOnFinished(_ -> iv.setImage(AssetManager.getPlayerHiddenNumberCard(revealedNumber, 2)));
 
         ScaleTransition expand = new ScaleTransition(Duration.millis(150), iv);
         expand.setFromX(0.0);
@@ -866,7 +941,7 @@ public class GameTableView extends StackPane {
         }
     }
 
-    private StackPane makeDroppedTrumpNode(GameStateSnapshot.PlayedTrumpView pt, int index, boolean animateDrop) {
+    private StackPane makeDroppedTrumpNode(GameStateSnapshot.PlayedTrumpView pt, int index, int totalPlayed, boolean animateDrop) {
         StackPane cardFrame = new StackPane();
         cardFrame.setPadding(Insets.EMPTY);
         cardFrame.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
@@ -876,31 +951,85 @@ public class GameTableView extends StackPane {
             cardFrame.setOpacity(0.42);
         }
 
+        double fitH = (totalPlayed > 5)
+                ? Math.max(62.0, CARD_BASE_HEIGHT * (5.0 / totalPlayed))
+                : CARD_BASE_HEIGHT;
+
         ImageView iv = new ImageView(AssetManager.getTrumpCardImage(pt.name, 2));
         iv.setSmooth(false);
         iv.setPreserveRatio(true);
-        iv.setFitHeight(82);
+        iv.setFitHeight(fitH);
         cardFrame.getChildren().add(iv);
 
         double restAngle = ((index % 3) - 1) * 3.5;
         cardFrame.setRotate(restAngle);
 
         if (animateDrop) {
-            TranslateTransition drop = new TranslateTransition(Duration.millis(240), cardFrame);
-            drop.setFromY(pt.mine ? 55.0 : -55.0);
-            drop.setToY(0.0);
+            double startX = pt.mine ? -30.0 : 30.0;
+            double startY = pt.mine ? 150.0 : -150.0;
+            double startAngle = pt.mine ? -18.0 : 18.0;
+            double apexY = pt.mine ? -16.0 : 16.0;
+            double apexAngle = pt.mine ? 6.0 : -6.0;
 
-            ScaleTransition scale = new ScaleTransition(Duration.millis(240), cardFrame);
-            scale.setFromX(1.4);
-            scale.setFromY(1.4);
-            scale.setToX(1.0);
-            scale.setToY(1.0);
+            cardFrame.setTranslateX(startX);
+            cardFrame.setTranslateY(startY);
+            cardFrame.setScaleX(0.85);
+            cardFrame.setScaleY(0.85);
+            cardFrame.setRotate(startAngle);
 
-            RotateTransition rot = new RotateTransition(Duration.millis(240), cardFrame);
-            rot.setFromAngle(pt.mine ? -12.0 : 12.0);
-            rot.setToAngle(restAngle);
+            TranslateTransition liftMove = new TranslateTransition(Duration.millis(220), cardFrame);
+            liftMove.setFromX(startX);
+            liftMove.setFromY(startY);
+            liftMove.setToX(0.0);
+            liftMove.setToY(apexY);
+            liftMove.setInterpolator(Interpolator.EASE_OUT);
 
-            new ParallelTransition(drop, scale, rot).play();
+            ScaleTransition liftScale = new ScaleTransition(Duration.millis(220), cardFrame);
+            liftScale.setFromX(0.85);
+            liftScale.setFromY(0.85);
+            liftScale.setToX(1.45);
+            liftScale.setToY(1.45);
+            liftScale.setInterpolator(Interpolator.EASE_OUT);
+
+            RotateTransition liftRot = new RotateTransition(Duration.millis(220), cardFrame);
+            liftRot.setFromAngle(startAngle);
+            liftRot.setToAngle(apexAngle);
+            liftRot.setInterpolator(Interpolator.EASE_OUT);
+
+            ParallelTransition grabLift = new ParallelTransition(liftMove, liftScale, liftRot);
+
+            TranslateTransition slamMove = new TranslateTransition(Duration.millis(185), cardFrame);
+            slamMove.setFromX(0.0);
+            slamMove.setFromY(apexY);
+            slamMove.setToX(0.0);
+            slamMove.setToY(0.0);
+            slamMove.setInterpolator(Interpolator.EASE_IN);
+
+            ScaleTransition slamScale = new ScaleTransition(Duration.millis(185), cardFrame);
+            slamScale.setFromX(1.45);
+            slamScale.setFromY(1.45);
+            slamScale.setToX(0.95);
+            slamScale.setToY(0.95);
+            slamScale.setInterpolator(Interpolator.EASE_IN);
+
+            RotateTransition slamRot = new RotateTransition(Duration.millis(185), cardFrame);
+            slamRot.setFromAngle(apexAngle);
+            slamRot.setToAngle(restAngle);
+            slamRot.setInterpolator(Interpolator.EASE_IN);
+
+            ParallelTransition slam = new ParallelTransition(slamMove, slamScale, slamRot);
+            slam.setOnFinished(_ -> {
+                spawnTrumpImpactParticles(cardFrame, pt.mine);
+                ScaleTransition settle = new ScaleTransition(Duration.millis(85), cardFrame);
+                settle.setFromX(0.95);
+                settle.setFromY(0.95);
+                settle.setToX(1.0);
+                settle.setToY(1.0);
+                settle.setInterpolator(Interpolator.EASE_OUT);
+                settle.play();
+            });
+
+            new SequentialTransition(grabLift, slam).play();
         }
 
         String ownerTag = pt.mine ? "TU" : pt.ownerName.toUpperCase();
@@ -915,6 +1044,59 @@ public class GameTableView extends StackPane {
             trumpHoverBanner.setText("");
         });
         return cardFrame;
+    }
+
+    private void spawnTrumpImpactParticles(Node cardNode, boolean isMine) {
+        Platform.runLater(() -> {
+            if (getScene() == null || cardNode.getScene() == null) return;
+            Bounds sceneBounds = cardNode.localToScene(cardNode.getBoundsInLocal());
+            if (sceneBounds == null) return;
+            Point2D center = sceneToLocal(
+                    sceneBounds.getMinX() + sceneBounds.getWidth() * 0.5,
+                    sceneBounds.getMinY() + sceneBounds.getHeight() * 0.5
+            );
+            if (center == null) return;
+
+            Color accentColor = isMine ? Color.rgb(25, 73, 138) : Color.rgb(184, 37, 53);
+            Color darkColor = Color.rgb(16, 16, 16);
+            int count = 12;
+            for (int i = 0; i < count; i++) {
+                double size = (i % 2 == 0) ? 4.0 : 3.0;
+                Rectangle particle = new Rectangle(size, size, (i % 2 == 0) ? darkColor : accentColor);
+                particle.setManaged(false);
+                particle.setMouseTransparent(true);
+                particle.setLayoutX(center.getX() - size * 0.5);
+                particle.setLayoutY(center.getY() - size * 0.5);
+                getChildren().add(particle);
+
+                double angle = (2.0 * Math.PI * i / count) + (random.nextDouble() - 0.5) * 0.35;
+                double dist = 20.0 + random.nextDouble() * 26.0;
+                double dx = Math.cos(angle) * dist;
+                double dy = Math.sin(angle) * dist;
+
+                TranslateTransition burst = new TranslateTransition(Duration.millis(340), particle);
+                burst.setFromX(0.0);
+                burst.setFromY(0.0);
+                burst.setToX(dx);
+                burst.setToY(dy);
+                burst.setInterpolator(FRICTION_DECEL);
+
+                ScaleTransition shrink = new ScaleTransition(Duration.millis(340), particle);
+                shrink.setFromX(1.0);
+                shrink.setFromY(1.0);
+                shrink.setToX(0.2);
+                shrink.setToY(0.2);
+                shrink.setInterpolator(FRICTION_DECEL);
+
+                FadeTransition fade = new FadeTransition(Duration.millis(340), particle);
+                fade.setFromValue(1.0);
+                fade.setToValue(0.0);
+
+                ParallelTransition pt = new ParallelTransition(burst, shrink, fade);
+                pt.setOnFinished(_ -> getChildren().remove(particle));
+                pt.play();
+            }
+        });
     }
 
     private void renderTrumpDrawer(GameStateSnapshot s, boolean canAct) {
@@ -966,14 +1148,17 @@ public class GameTableView extends StackPane {
         pauseOverlay = new StackPane();
         pauseOverlay.setStyle("-fx-background-color: rgba(255, 255, 255, 0.85);");
 
-        VBox box = new VBox(16);
+        VBox box = new VBox(14);
         box.setAlignment(Pos.CENTER);
-        box.setMaxWidth(300);
-        box.setMaxHeight(210);
+        box.setMaxWidth(340);
+        box.setMaxHeight(290);
         box.setPadding(new Insets(26));
         box.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #101010; -fx-border-width: 3;");
 
         Label title = PixelUI.label("PAUSA", 22, true);
+        Label volumeLbl = PixelUI.label("VOLUMEN DE MUSICA:", 12.5, true);
+        PixelUI.PixelSlider volumeSlider = new PixelUI.PixelSlider(app.getVolume(), app::setVolume);
+
         Button continueBtn = PixelUI.invertedButton("CONTINUAR", 14, 190, 40);
         Button surrenderBtn = PixelUI.pixelButton("RENDIRSE", 14, 190, 40);
 
@@ -983,7 +1168,7 @@ public class GameTableView extends StackPane {
             p2pManager.performLocalSurrender();
         });
 
-        box.getChildren().addAll(title, continueBtn, surrenderBtn);
+        box.getChildren().addAll(title, volumeLbl, volumeSlider, continueBtn, surrenderBtn);
         pauseOverlay.getChildren().add(box);
         getChildren().add(pauseOverlay);
     }
@@ -993,6 +1178,156 @@ public class GameTableView extends StackPane {
             getChildren().remove(pauseOverlay);
             pauseOverlay = null;
         }
+    }
+
+    private void setupVoidInteractionHandlers() {
+        addEventFilter(MouseEvent.MOUSE_MOVED, e -> {
+            lastMouseX = e.getX();
+            lastMouseY = e.getY();
+        });
+        addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
+            lastMouseX = e.getX();
+            lastMouseY = e.getY();
+        });
+        addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+            lastMouseX = e.getX();
+            lastMouseY = e.getY();
+            if (isInteractiveTarget(e.getTarget())) {
+                return;
+            }
+            GameStateSnapshot snap = this.currentSnapshot;
+            boolean canAct = snap != null && snap.myTurn && !snap.roundOver && !snap.gameOver;
+            boolean isBusted = snap != null && snap.getMyTotalSum() > snap.targetScore;
+            long now = System.currentTimeMillis();
+
+            if (e.getButton() == MouseButton.PRIMARY) {
+                voidRightClicks = 0;
+                if (now - lastVoidLeftClickMs > VOID_TRIPLE_CLICK_WINDOW_MS) {
+                    voidLeftClicks = 1;
+                } else {
+                    voidLeftClicks++;
+                }
+                lastVoidLeftClickMs = now;
+                String word = DRAW_WORDS[random.nextInt(DRAW_WORDS.length)];
+                spawnCursorFollowerWord(word, e.getX(), e.getY(), "#19498A");
+                if (voidLeftClicks >= 3) {
+                    voidLeftClicks = 0;
+                    if (canAct && !isBusted) {
+                        p2pManager.performLocalDraw();
+                    }
+                }
+            } else if (e.getButton() == MouseButton.SECONDARY) {
+                voidLeftClicks = 0;
+                if (now - lastVoidRightClickMs > VOID_TRIPLE_CLICK_WINDOW_MS) {
+                    voidRightClicks = 1;
+                } else {
+                    voidRightClicks++;
+                }
+                lastVoidRightClickMs = now;
+                String word = STAND_WORDS[random.nextInt(STAND_WORDS.length)];
+                spawnCursorFollowerWord(word, e.getX(), e.getY(), "#101010");
+                if (voidRightClicks >= 3) {
+                    voidRightClicks = 0;
+                    if (canAct) {
+                        p2pManager.performLocalStand();
+                    }
+                }
+            }
+        });
+    }
+
+    private boolean isInteractiveTarget(EventTarget target) {
+        if (pauseOverlay != null || disconnectOverlay != null || gameOverOverlay != null) {
+            return true;
+        }
+        if (!(target instanceof Node cur)) {
+            return false;
+        }
+        while (cur != null && cur != this) {
+            if (cur == drawBtn || cur == standBtn || cur == pauseIconBtn || cur == trumpDrawerZone) {
+                return true;
+            }
+            if (cur instanceof Button || cur.getCursor() == Cursor.HAND) {
+                return true;
+            }
+            Parent p = cur.getParent();
+            cur = p;
+        }
+        return false;
+    }
+
+    private void spawnCursorFollowerWord(String text, double startX, double startY, String colorHex) {
+        Label wordLbl = PixelUI.label(text, 12.0, true);
+        wordLbl.setStyle("-fx-text-fill: " + colorHex + ";");
+        wordLbl.setManaged(false);
+        wordLbl.setMouseTransparent(true);
+
+        double offsetX = -26.0 + random.nextDouble() * 52.0;
+        double offsetY = -26.0 - random.nextDouble() * 14.0;
+        double initX = startX + offsetX;
+        double initY = startY + offsetY;
+
+        getChildren().add(wordLbl);
+        wordLbl.applyCss();
+        wordLbl.autosize();
+        wordLbl.relocate(initX, initY);
+
+        activeCursorWords.add(new CursorWordTracker(wordLbl, System.nanoTime(), initX, initY, offsetX, offsetY));
+        startCursorWordsLoop();
+    }
+
+    private void startCursorWordsLoop() {
+        if (cursorWordsTimer != null) {
+            return;
+        }
+        cursorWordsTimer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                if (activeCursorWords.isEmpty()) {
+                    stop();
+                    cursorWordsTimer = null;
+                    return;
+                }
+                List<CursorWordTracker> finished = null;
+                for (CursorWordTracker w : activeCursorWords) {
+                    double t = (now - w.birthNs) / 850_000_000.0;
+                    if (t >= 1.0) {
+                        if (finished == null) finished = new ArrayList<>();
+                        finished.add(w);
+                        continue;
+                    }
+                    double targetX = lastMouseX + w.offsetX;
+                    double targetY = lastMouseY + w.offsetY - t * 28.0;
+                    w.currentX += (targetX - w.currentX) * 0.22;
+                    w.currentY += (targetY - w.currentY) * 0.22;
+                    w.label.relocate(w.currentX, w.currentY);
+                    double alpha = (t < 0.2) ? 1.0 : Math.max(0.0, 1.0 - (t - 0.2) / 0.8);
+                    w.label.setOpacity(alpha);
+                }
+                if (finished != null) {
+                    for (CursorWordTracker w : finished) {
+                        getChildren().remove(w.label);
+                        activeCursorWords.remove(w);
+                    }
+                }
+                if (activeCursorWords.isEmpty()) {
+                    stop();
+                    cursorWordsTimer = null;
+                }
+            }
+        };
+        cursorWordsTimer.start();
+    }
+
+    private void stopCursorWords() {
+        if (cursorWordsTimer != null) {
+            cursorWordsTimer.stop();
+            cursorWordsTimer = null;
+        }
+        for (CursorWordTracker w : activeCursorWords) {
+            getChildren().remove(w.label);
+        }
+        activeCursorWords.clear();
     }
 
     private void showDisconnectModal(String reason) {

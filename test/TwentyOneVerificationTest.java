@@ -12,6 +12,7 @@ import UI.GameTableView;
 import UI.LobbyView;
 import UI.MainMenuView;
 import UI.PixelUI;
+import UI.SoundManager;
 import UI.TwentyOneApp;
 import javafx.application.Platform;
 import javafx.scene.Scene;
@@ -392,6 +393,22 @@ public class TwentyOneVerificationTest {
                 assertFalse(cb.isSelected());
                 cb.setSelected(true);
                 assertTrue(cb.isSelected());
+
+                // Verify SoundManager volume clamping and PixelSlider callback
+                double origVol = app.getVolume();
+                SoundManager.playBgm();
+                AtomicReference<Double> sliderCallbackVal = new AtomicReference<>(0.0);
+                PixelUI.PixelSlider slider = new PixelUI.PixelSlider(0.35, v -> {
+                    sliderCallbackVal.set(v);
+                    app.setVolume(v);
+                });
+                assertEquals(0.35, slider.getValue(), 1e-4);
+                slider.setValue(0.8);
+                assertEquals(0.8, sliderCallbackVal.get(), 1e-4);
+                assertEquals(0.8, app.getVolume(), 1e-4);
+                slider.setValue(1.5);
+                assertEquals(1.0, slider.getValue(), 1e-4);
+                app.setVolume(origVol);
 
                 assertFalse(app.isBorderless());
                 app.setBorderless(true);

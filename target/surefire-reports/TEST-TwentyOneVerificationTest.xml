@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="TwentyOneVerificationTest" time="1.674" tests="8" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="TwentyOneVerificationTest" time="1.668" tests="8" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="25"/>
     <property name="javafx.runtime.version" value="23.0.2+3"/>
     <property name="sun.cpu.isalist" value="amd64"/>
     <property name="sun.jnu.encoding" value="Cp1252"/>
-    <property name="java.class.path" value="C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\test-classes;C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\classes;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter\5.11.4\junit-jupiter-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.11.4\junit-jupiter-api-5.11.4.jar;C:\Users\juanf\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-commons\1.11.4\junit-platform-commons-1.11.4.jar;C:\Users\juanf\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.11.4\junit-jupiter-params-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.11.4\junit-jupiter-engine-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-engine\1.11.4\junit-platform-engine-1.11.4.jar;"/>
+    <property name="java.class.path" value="C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\test-classes;C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\classes;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-media\23.0.2\javafx-media-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-media\23.0.2\javafx-media-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter\5.11.4\junit-jupiter-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.11.4\junit-jupiter-api-5.11.4.jar;C:\Users\juanf\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-commons\1.11.4\junit-platform-commons-1.11.4.jar;C:\Users\juanf\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.11.4\junit-jupiter-params-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.11.4\junit-jupiter-engine-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-engine\1.11.4\junit-platform-engine-1.11.4.jar;"/>
     <property name="java.vm.vendor" value="Oracle Corporation"/>
     <property name="sun.arch.data.model" value="64"/>
     <property name="user.variant" value=""/>
@@ -17,9 +17,9 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="C:\Program Files\Java\jdk-25.0.2\bin"/>
-    <property name="sun.java.command" value="C:\Users\juanf\AppData\Local\Temp\surefire17665406948639186271\surefirebooter-20261115042122579_3.jar C:\Users\juanf\AppData\Local\Temp\surefire17665406948639186271 2026-11-15T04-21-22_393-jvmRun1 surefire-20261115042122579_1tmp surefire_0-20261115042122579_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\juanf\AppData\Local\Temp\surefire12114204244240052730\surefirebooter-20261115142745928_3.jar C:\Users\juanf\AppData\Local\Temp\surefire12114204244240052730 2026-11-15T14-27-45_803-jvmRun1 surefire-20261115142745928_1tmp surefire_0-20261115142745928_2tmp"/>
     <property name="jdk.debug" value="release"/>
-    <property name="surefire.test.class.path" value="C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\test-classes;C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\classes;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter\5.11.4\junit-jupiter-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.11.4\junit-jupiter-api-5.11.4.jar;C:\Users\juanf\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-commons\1.11.4\junit-platform-commons-1.11.4.jar;C:\Users\juanf\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.11.4\junit-jupiter-params-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.11.4\junit-jupiter-engine-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-engine\1.11.4\junit-platform-engine-1.11.4.jar;"/>
+    <property name="surefire.test.class.path" value="C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\test-classes;C:\Users\juanf\Documents\Twentyone\twentyoneproject\target\classes;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-controls\23.0.2\javafx-controls-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-graphics\23.0.2\javafx-graphics-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-base\23.0.2\javafx-base-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-media\23.0.2\javafx-media-23.0.2.jar;C:\Users\juanf\.m2\repository\org\openjfx\javafx-media\23.0.2\javafx-media-23.0.2-win.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter\5.11.4\junit-jupiter-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.11.4\junit-jupiter-api-5.11.4.jar;C:\Users\juanf\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-commons\1.11.4\junit-platform-commons-1.11.4.jar;C:\Users\juanf\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.11.4\junit-jupiter-params-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.11.4\junit-jupiter-engine-5.11.4.jar;C:\Users\juanf\.m2\repository\org\junit\platform\junit-platform-engine\1.11.4\junit-platform-engine-1.11.4.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
     <property name="user.home" value="C:\Users\juanf"/>
     <property name="user.language" value="en"/>
@@ -32,7 +32,7 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
-    <property name="surefire.real.class.path" value="C:\Users\juanf\AppData\Local\Temp\surefire17665406948639186271\surefirebooter-20261115042122579_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\juanf\AppData\Local\Temp\surefire12114204244240052730\surefirebooter-20261115142745928_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="25.0.2+10-LTS-69"/>
@@ -61,16 +61,16 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="69.0"/>
   </properties>
-  <testcase name="testRailwayRelayServerCodeAndPublicRooms" classname="TwentyOneVerificationTest" time="0.22">
-    <system-err><![CDATA[Nov 15, 2026 4:21:23 AM com.sun.javafx.application.PlatformImpl startup
-WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @610694f1'
+  <testcase name="testRailwayRelayServerCodeAndPublicRooms" classname="TwentyOneVerificationTest" time="0.208">
+    <system-err><![CDATA[Nov 15, 2026 2:27:46 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @2758fe70'
 ]]></system-err>
   </testcase>
-  <testcase name="testP2PManagerAndHiddenCardPrivacy" classname="TwentyOneVerificationTest" time="0.011"/>
-  <testcase name="testAll25TrumpsAndGameLogic" classname="TwentyOneVerificationTest" time="0.004"/>
+  <testcase name="testP2PManagerAndHiddenCardPrivacy" classname="TwentyOneVerificationTest" time="0.009"/>
+  <testcase name="testAll25TrumpsAndGameLogic" classname="TwentyOneVerificationTest" time="0.005"/>
   <testcase name="testP2PRematchOkStartsFreshMatch" classname="TwentyOneVerificationTest" time="0.004"/>
-  <testcase name="testJavaFxViewsConstructCleanly" classname="TwentyOneVerificationTest" time="0.821"/>
+  <testcase name="testJavaFxViewsConstructCleanly" classname="TwentyOneVerificationTest" time="0.929"/>
   <testcase name="testJudgesDoubleBetBlessAndRoundResolution" classname="TwentyOneVerificationTest" time="0.002"/>
   <testcase name="testLanDiscoveryService" classname="TwentyOneVerificationTest" time="0.008"/>
-  <testcase name="testAssetManagerLoadsAllAssets" classname="TwentyOneVerificationTest" time="0.048"/>
+  <testcase name="testAssetManagerLoadsAllAssets" classname="TwentyOneVerificationTest" time="0.055"/>
 </testsuite>

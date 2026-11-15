@@ -231,13 +231,16 @@ public class MainMenuView extends StackPane {
         VBox box = new VBox(14);
         box.setAlignment(Pos.CENTER_LEFT);
         box.setMaxWidth(420);
-        box.setMaxHeight(280);
+        box.setMaxHeight(340);
         box.setPadding(new Insets(26));
         box.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #101010; -fx-border-width: 3;");
 
         Label title = PixelUI.label("OPCIONES", 22, true);
         Label nameLbl = PixelUI.label("NOMBRE DEL JUGADOR:", 13, true);
         TextField nameField = PixelUI.pixelField(app.getPlayerName(), 340);
+
+        Label volumeLbl = PixelUI.label("VOLUMEN DE MUSICA:", 13, true);
+        PixelUI.PixelSlider volumeSlider = new PixelUI.PixelSlider(app.getVolume(), app::setVolume);
 
         PixelUI.PixelCheckBox borderlessCheck = new PixelUI.PixelCheckBox("Ventana sin bordes", app.isBorderless());
 
@@ -262,7 +265,7 @@ public class MainMenuView extends StackPane {
         });
 
         actions.getChildren().addAll(cancelBtn, saveBtn);
-        box.getChildren().addAll(title, nameLbl, nameField, borderlessCheck, errorLbl, actions);
+        box.getChildren().addAll(title, nameLbl, nameField, volumeLbl, volumeSlider, borderlessCheck, errorLbl, actions);
         optionsOverlay.getChildren().add(box);
         getChildren().add(optionsOverlay);
     }

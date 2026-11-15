@@ -11,7 +11,9 @@ import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -19,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.DoubleConsumer;
 
 public class PixelUI {
     public static final String FALLBACK_FONT = "Monospaced";
@@ -220,6 +223,89 @@ public class PixelUI {
 
         public void setOnChanged(Runnable onChanged) {
             this.onChanged = onChanged;
+        }
+    }
+
+    public static class PixelSlider extends HBox {
+        private static final double TRACK_WIDTH = 180.0;
+        private static final double TRACK_HEIGHT = 16.0;
+        private static final double THUMB_WIDTH = 10.0;
+        private static final double THUMB_HEIGHT = 20.0;
+
+        private double value;
+        private final Rectangle fillRect;
+        private final Rectangle thumbRect;
+        private final Label percentLabel;
+        private DoubleConsumer onValueChanged;
+
+        public PixelSlider(double initialValue, DoubleConsumer onValueChanged) {
+            this.value = Math.max(0.0, Math.min(1.0, initialValue));
+            this.onValueChanged = onValueChanged;
+
+            setAlignment(Pos.CENTER_LEFT);
+            setSpacing(12);
+
+            Pane trackPane = new Pane();
+            trackPane.setPrefSize(TRACK_WIDTH, THUMB_HEIGHT);
+            trackPane.setMinSize(TRACK_WIDTH, THUMB_HEIGHT);
+            trackPane.setMaxSize(TRACK_WIDTH, THUMB_HEIGHT);
+            trackPane.setCursor(Cursor.HAND);
+
+            double trackY = (THUMB_HEIGHT - TRACK_HEIGHT) / 2.0;
+
+            Rectangle bgRect = new Rectangle(0, trackY, TRACK_WIDTH, TRACK_HEIGHT);
+            bgRect.setFill(Color.WHITE);
+            bgRect.setStroke(Color.rgb(16, 16, 16));
+            bgRect.setStrokeWidth(2);
+
+            fillRect = new Rectangle(2, trackY + 2, 0, TRACK_HEIGHT - 4);
+            fillRect.setFill(Color.rgb(16, 16, 16));
+
+            thumbRect = new Rectangle(0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+            thumbRect.setFill(Color.rgb(16, 16, 16));
+            thumbRect.setStroke(Color.WHITE);
+            thumbRect.setStrokeWidth(1.5);
+
+            trackPane.getChildren().addAll(bgRect, fillRect, thumbRect);
+
+            percentLabel = label("", 12.5, true);
+            percentLabel.setMinWidth(46);
+
+            getChildren().addAll(trackPane, percentLabel);
+            updateVisuals();
+
+            trackPane.setOnMousePressed(e -> applyMouseX(e.getX()));
+            trackPane.setOnMouseDragged(e -> applyMouseX(e.getX()));
+        }
+
+        private void applyMouseX(double x) {
+            double newVal = Math.max(0.0, Math.min(1.0, x / TRACK_WIDTH));
+            setValue(newVal);
+        }
+
+        public double getValue() {
+            return value;
+        }
+
+        public void setValue(double newVal) {
+            double clamped = Math.max(0.0, Math.min(1.0, newVal));
+            this.value = clamped;
+            updateVisuals();
+            if (onValueChanged != null) {
+                onValueChanged.accept(clamped);
+            }
+        }
+
+        public void setOnValueChanged(DoubleConsumer onValueChanged) {
+            this.onValueChanged = onValueChanged;
+        }
+
+        private void updateVisuals() {
+            double innerMaxW = Math.max(0.0, TRACK_WIDTH - 4.0);
+            fillRect.setWidth(innerMaxW * value);
+            double thumbX = (TRACK_WIDTH - THUMB_WIDTH) * value;
+            thumbRect.setX(thumbX);
+            percentLabel.setText(Math.round(value * 100.0) + "%");
         }
     }
 }
