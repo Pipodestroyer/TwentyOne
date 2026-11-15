@@ -13,10 +13,12 @@ public class config {
     public static final byte BET_SINGLE = 1;
     public static final byte BET_DOUBLE = 2;
 
+    private static final byte BASE_BET = (byte) 1;
     private static byte idJudge = JUDGE_HOST;
     private static byte betMode = BET_SINGLE;
     private static byte currentBet;
     private static byte originalBet; // Aka round number
+    private static byte initialChipsPerPlayer = (byte) 7;
     private static player player1;
     private static player player2;
     private static player nextPlayer;
@@ -106,6 +108,9 @@ public class config {
         config.player1 = j1;
         config.player2 = j2;
         config.lastLoser = null;
+        initialChipsPerPlayer = (j2 != null && j2.getChips() > 0)
+                ? j2.getChips()
+                : ((j1 != null && j1.getChips() > 0) ? j1.getChips() : (byte) 7);
         originalBet = (byte) 0;
         currentBet = originalBet;
         numberCardScore = (byte) 21;
@@ -209,9 +214,9 @@ public class config {
 
     public static void recalculateContinuousEffects() {
         byte target = (byte) 21;
-        int sharedBet = originalBet;
-        int p1Bet = originalBet;
-        int p2Bet = originalBet;
+        int sharedBet = BASE_BET;
+        int p1Bet = BASE_BET;
+        int p2Bet = BASE_BET;
 
         player[] both = {player1, player2};
         for (player owner : both) {
@@ -266,14 +271,14 @@ public class config {
 
     public static void startRound() {
         originalBet = (byte) (originalBet + 1);
-        currentBet = originalBet;
+        currentBet = BASE_BET;
         numberCardScore = (byte) 21;
         roundOver = false;
         lastRoundSummary = null;
         playedTrumpsHistory.clear();
         resetStoodState();
-        if (player1 != null) player1.setPersonalBet(originalBet);
-        if (player2 != null) player2.setPersonalBet(originalBet);
+        if (player1 != null) player1.setPersonalBet(BASE_BET);
+        if (player2 != null) player2.setPersonalBet(BASE_BET);
         refillNumberPool();
 
         getCurrentPlayer().addTrump(trumpCard.getRandom());
@@ -350,15 +355,11 @@ public class config {
                 betToPay = 0;
             }
 
-            int loserNewChips = Math.max(0, loser.getChips() - betToPay);
+            int transferred = Math.min(loser.getChips(), Math.max(0, betToPay));
+            int loserNewChips = loser.getChips() - transferred;
             loser.setChips((byte) loserNewChips);
 
-            int winnerGain = switch (idJudge) {
-                case JUDGE_BANK -> 0;
-                case JUDGE_MAFIA -> (originalBet > 1 && betToPay > 0) ? (betToPay - 1) : betToPay;
-                default -> betToPay;
-            };
-            int winnerNewChips = Math.min(127, winner.getChips() + winnerGain);
+            int winnerNewChips = Math.min(127, winner.getChips() + transferred);
             winner.setChips((byte) winnerNewChips);
             lastLoser = loser;
         }
@@ -416,6 +417,37 @@ public class config {
         if (lastLoser != null) {
             currentPlayer = lastLoser;
             nextPlayer = getOpponentOf(lastLoser);
+        }
+        startRound();
+    }
+
+    public static void restartMatch() {
+        if (player1 == null || player2 == null) {
+            return;
+        }
+        player1.setChips(initialChipsPerPlayer);
+        player2.setChips(initialChipsPerPlayer);
+        player1.getTrumpCards().clear();
+        player2.getTrumpCards().clear();
+        player1.getTrumpsInUse().clear();
+        player2.getTrumpsInUse().clear();
+        player1.getNumberCards().clear();
+        player2.getNumberCards().clear();
+        playedTrumpsHistory.clear();
+        resetStoodState();
+        lastLoser = null;
+        originalBet = (byte) 0;
+        currentBet = BASE_BET;
+        numberCardScore = (byte) 21;
+        roundOver = false;
+        lastRoundSummary = null;
+        inGame = true;
+        if (new Random().nextBoolean()) {
+            nextPlayer = player1;
+            currentPlayer = player2;
+        } else {
+            nextPlayer = player2;
+            currentPlayer = player1;
         }
         startRound();
     }

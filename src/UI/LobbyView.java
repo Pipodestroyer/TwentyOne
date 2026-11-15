@@ -116,15 +116,9 @@ public class LobbyView extends StackPane {
 
         Label header = PixelUI.label("HOSTEAR PARTIDA (TUS REGLAS)", 15.5, true);
 
-        // Mode toggles: Online by default, toggleable to LAN P2P
+        // Mode toggles: Online open (without code) by default, toggleable to LAN P2P or password-protected room
         PixelUI.PixelCheckBox lanModeCheck = pixelCheckBox("Modo LAN (Red Local P2P)", false);
-        PixelUI.PixelCheckBox publicRoomCheck = pixelCheckBox("Partida Publica (visible en buscador)", true);
-
-        // Judges
-        Label judgeTitle = PixelUI.label("JUEZ (marca varios para aleatorio):", 12.5, true);
-        PixelUI.PixelCheckBox jHost = pixelCheckBox("El Anfitrion (+0 fichas, ganador lleva todo)", true);
-        PixelUI.PixelCheckBox jBank = pixelCheckBox("El Banco (+6 fichas, perdedor paga al juez)", false);
-        PixelUI.PixelCheckBox jMafia = pixelCheckBox("La Mafia (+2 fichas, 1 ficha al juez desde R2)", false);
+        PixelUI.PixelCheckBox passwordRoomCheck = pixelCheckBox("Requiere contrasena (codigo 4 digitos)", false);
 
         // Bet Modes
         Label betTitle = PixelUI.label("APUESTAS (marca ambos para aleatorio):", 12.5, true);
@@ -150,18 +144,13 @@ public class LobbyView extends StackPane {
 
         Runnable syncModeUi = () -> {
             boolean isLan = lanModeCheck.isSelected();
-            publicRoomCheck.setDisable(isLan);
-            publicRoomCheck.setOpacity(isLan ? 0.45 : 1.0);
+            passwordRoomCheck.setDisable(isLan);
+            passwordRoomCheck.setOpacity(isLan ? 0.45 : 1.0);
         };
         lanModeCheck.setOnChanged(syncModeUi);
         syncModeUi.run();
 
         createBtn.setOnAction(_ -> {
-            List<Byte> judges = new ArrayList<>();
-            if (jHost.isSelected()) judges.add(config.JUDGE_HOST);
-            if (jBank.isSelected()) judges.add(config.JUDGE_BANK);
-            if (jMafia.isSelected()) judges.add(config.JUDGE_MAFIA);
-
             List<Byte> betModes = new ArrayList<>();
             if (bSingle.isSelected()) betModes.add(config.BET_SINGLE);
             if (bDouble.isSelected()) betModes.add(config.BET_DOUBLE);
@@ -172,20 +161,20 @@ public class LobbyView extends StackPane {
             if (c9.isSelected()) chipsOptions.add((byte) 9);
             if (c11.isSelected()) chipsOptions.add((byte) 11);
 
-            if (judges.isEmpty() || betModes.isEmpty() || chipsOptions.isEmpty()) {
-                feedbackLabel.setText("Selecciona al menos una opcion de Juez, Apuesta y Fichas.");
+            if (betModes.isEmpty() || chipsOptions.isEmpty()) {
+                feedbackLabel.setText("Selecciona al menos una opcion de Apuesta y Fichas.");
                 return;
             }
 
-            byte chosenJudge = judges.get(random.nextInt(judges.size()));
             byte chosenBet = betModes.get(random.nextInt(betModes.size()));
             byte chosenChips = chipsOptions.get(random.nextInt(chipsOptions.size()));
-            GameRules rules = new GameRules(app.getPlayerName(), chosenJudge, chosenBet, chosenChips);
+            GameRules rules = new GameRules(app.getPlayerName(), config.JUDGE_HOST, chosenBet, chosenChips);
 
             if (lanModeCheck.isSelected()) {
                 startHostingLanRoom(rules, app.getDefaultPort());
             } else {
-                startHostingRailwayRoom(rules, publicRoomCheck.isSelected());
+                boolean isPublic = !passwordRoomCheck.isSelected();
+                startHostingRailwayRoom(rules, isPublic);
             }
         });
 
@@ -194,8 +183,7 @@ public class LobbyView extends StackPane {
 
         actionRow.getChildren().add(createBtn);
         panel.getChildren().addAll(
-                header, lanModeCheck, publicRoomCheck,
-                judgeTitle, jHost, jBank, jMafia,
+                header, lanModeCheck, passwordRoomCheck,
                 betTitle, betRow,
                 chipsTitle, chipsRow,
                 vSpacer,
@@ -236,17 +224,17 @@ public class LobbyView extends StackPane {
         scroll.setStyle("-fx-background: #FFFFFF; -fx-background-color: #FFFFFF; "
                 + "-fx-border-color: #101010; -fx-border-width: 2;");
 
-        // Join by 4-digit room code
-        Label codeTitle = PixelUI.label("UNIRSE POR CODIGO (4 DIGITOS):", 12.5, true);
+        // Join by 4-digit room password
+        Label codeTitle = PixelUI.label("UNIRSE CON CONTRASENA (4 DIGITOS):", 12.5, true);
         HBox codeBox = new HBox(10);
         codeBox.setAlignment(Pos.CENTER_LEFT);
         TextField codeField = PixelUI.pixelField("", 120);
         codeField.setPromptText("Ej: 4821");
-        Button joinCodeBtn = PixelUI.invertedButton("UNIRSE CODIGO", 12.5, 135, 34);
+        Button joinCodeBtn = PixelUI.invertedButton("UNIRSE", 12.5, 135, 34);
         joinCodeBtn.setOnAction(_ -> {
             String code = codeField.getText().trim();
             if (!code.matches("\\d{4}")) {
-                feedbackLabel.setText("Ingresa un codigo valido de 4 digitos.");
+                feedbackLabel.setText("Ingresa una contrasena valida de 4 digitos.");
                 return;
             }
             connectToRailwayCode(code);
@@ -332,7 +320,7 @@ public class LobbyView extends StackPane {
 
         for (P2PManager.PublicRoom room : onlineRooms) {
             HBox card = makeServerCard(
-                    "[ONLINE #" + room.code + "] " + room.hostName,
+                    "[ONLINE] " + room.hostName,
                     formatRules(room.idJudge, room.betMode, room.initialChips),
                     "#19498A",
                     () -> connectToRailwayCode(room.code)
@@ -374,17 +362,12 @@ public class LobbyView extends StackPane {
     }
 
     private String formatRules(byte idJudge, byte betMode, byte initialChips) {
-        String judgeStr = switch (idJudge) {
-            case config.JUDGE_BANK -> "El Banco";
-            case config.JUDGE_MAFIA -> "La Mafia";
-            default -> "El Anfitrion";
-        };
         String betStr = betMode == config.BET_DOUBLE ? "2 Apuestas" : "1 Apuesta";
-        return "Juez: " + judgeStr + " | " + betStr + " | Fichas: " + initialChips;
+        return betStr + " | Fichas iniciales: " + initialChips;
     }
 
     private void connectToRailwayCode(String code) {
-        feedbackLabel.setText("Conectando a sala #" + code + "...");
+        feedbackLabel.setText("Conectando a sala...");
         stopAllScanning();
         app.ensureLocalRelayIfLocalhost();
         p2pManager.connectToRailwayRoom(app.getRailwayServerUrl(), code, app.getPlayerName(), createClientListener());
@@ -427,11 +410,11 @@ public class LobbyView extends StackPane {
     private void startHostingRailwayRoom(GameRules rules, boolean isPublic) {
         stopAllScanning();
         app.ensureLocalRelayIfLocalhost();
-        feedbackLabel.setText("Creando sala online...");
+        feedbackLabel.setText(isPublic ? "Creando sala online..." : "Creando sala privada...");
         showWaitingOverlay(
-                "SALA ONLINE - ESPERANDO OPONENTE",
-                "CODIGO: ....",
-                "Visibilidad: " + (isPublic ? "Publica en buscador" : "Privada (solo codigo)") + "\n"
+                "ESPERANDO A JUGADORES...",
+                isPublic ? null : "CONTRASENA: ....",
+                (isPublic ? "Sala publica sin contrasena" : "Comparte esta contrasena con tu oponente") + "\n"
                         + formatRules(rules.idJudge, rules.betMode, rules.initialChips)
         );
         p2pManager.startRailwayHost(
@@ -439,10 +422,12 @@ public class LobbyView extends StackPane {
                 rules,
                 isPublic,
                 code -> Platform.runLater(() -> {
-                    if (waitingCodeLabel != null) {
-                        waitingCodeLabel.setText("CODIGO: " + code);
+                    if (!isPublic && waitingCodeLabel != null) {
+                        waitingCodeLabel.setText("CONTRASENA: " + code);
+                        feedbackLabel.setText("Sala privada creada. Contrasena: " + code);
+                    } else {
+                        feedbackLabel.setText("Sala online creada, esperando a jugadores...");
                     }
-                    feedbackLabel.setText("Sala online creada con codigo #" + code);
                 }),
                 createHostListener()
         );

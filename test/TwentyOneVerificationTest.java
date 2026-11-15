@@ -153,11 +153,32 @@ public class TwentyOneVerificationTest {
         assertEquals(1, p1.getChips(), "Bless debe evitar perder fichas por bancarrota");
         assertTrue(config.isInGame());
 
-        // Advance to next round: loser (p1) starts
+        // Advance to next round: loser (p1) starts, base bet stays 1 while round counter increments
         config.advanceToNextRound();
         assertFalse(config.isRoundOver());
         assertEquals(p1, config.getCurrentPlayer());
         assertEquals(2, config.getOriginalBet());
+        assertEquals(1, config.getCurrentBet());
+
+        // Direct 1-to-1 chip transfer: p1 loses final chip -> p2 takes all chips and match ends
+        p1.getNumberCards().clear();
+        p2.getNumberCards().clear();
+        p1.addNumber((byte) 3, p2);
+        p2.addNumber((byte) 10, p1);
+        p2.addNumber((byte) 11);
+        p1.keepHand();
+        p2.keepHand();
+        assertTrue(config.isRoundOver());
+        assertEquals(0, p1.getChips(), "Perdedor debe quedar en 0 fichas");
+        assertEquals(8, p2.getChips(), "Ganador debe recibir la ficha del perdedor directamente");
+        assertFalse(config.isInGame(), "Al llegar a 0 fichas debe finalizar toda la partida");
+
+        // restartMatch restores initial chips & round 1
+        config.restartMatch();
+        assertTrue(config.isInGame());
+        assertFalse(config.isRoundOver());
+        assertEquals(1, config.getOriginalBet());
+        assertEquals(1, config.getCurrentBet());
     }
 
     @Test
@@ -520,6 +541,93 @@ public class TwentyOneVerificationTest {
             clientMgr.close();
             hostMgr.close();
             relayServer.stop();
+        }
+    }
+
+    @Test
+    void testP2PRematchOkStartsFreshMatch() throws Exception {
+        P2PManager hostMgr = new P2PManager();
+        P2PManager clientMgr = new P2PManager();
+        try {
+            CountDownLatch initLatch = new CountDownLatch(2);
+            CountDownLatch gameOverLatch = new CountDownLatch(2);
+            CountDownLatch oneReadyLatch = new CountDownLatch(2);
+            CountDownLatch rematchStartedLatch = new CountDownLatch(2);
+
+            AtomicReference<GameStateSnapshot> hostSnap = new AtomicReference<>();
+            AtomicReference<GameStateSnapshot> clientSnap = new AtomicReference<>();
+
+            int port = hostMgr.startHost(
+                    new GameRules("AnfitrionRematch", config.JUDGE_HOST, config.BET_SINGLE, (byte) 5),
+                    17779,
+                    new P2PManager.Listener() {
+                        @Override public void onConnected(String peerInfo) {}
+                        @Override public void onStateUpdated(GameStateSnapshot s) {
+                            hostSnap.set(s);
+                            if (s.roundNumber == 1 && !s.roundOver && !s.gameOver && initLatch.getCount() > 0) {
+                                initLatch.countDown();
+                            }
+                            if (s.gameOver && !s.myRematchReady && !s.enemyRematchReady) {
+                                gameOverLatch.countDown();
+                            }
+                            if (s.gameOver && s.myRematchReady && !s.enemyRematchReady) {
+                                oneReadyLatch.countDown();
+                            }
+                            if (gameOverLatch.getCount() == 0 && !s.gameOver && !s.roundOver && s.myChips == 5 && s.enemyChips == 5) {
+                                rematchStartedLatch.countDown();
+                            }
+                        }
+                        @Override public void onDisconnected(String reason) {}
+                        @Override public void onError(String message) { fail(message); }
+                    }
+            );
+
+            clientMgr.connectToHost("127.0.0.1", port, "ClienteRematch", new P2PManager.Listener() {
+                @Override public void onConnected(String peerInfo) {}
+                @Override public void onStateUpdated(GameStateSnapshot s) {
+                    clientSnap.set(s);
+                    if (s.roundNumber == 1 && !s.roundOver && !s.gameOver && initLatch.getCount() > 0) {
+                        initLatch.countDown();
+                    }
+                    if (s.gameOver && !s.myRematchReady && !s.enemyRematchReady) {
+                        gameOverLatch.countDown();
+                    }
+                    if (s.gameOver && s.enemyRematchReady && !s.myRematchReady) {
+                        oneReadyLatch.countDown();
+                    }
+                    if (gameOverLatch.getCount() == 0 && !s.gameOver && !s.roundOver && s.myChips == 5 && s.enemyChips == 5) {
+                        rematchStartedLatch.countDown();
+                    }
+                }
+                @Override public void onDisconnected(String reason) {}
+                @Override public void onError(String message) { fail(message); }
+            });
+
+            assertTrue(initLatch.await(5, TimeUnit.SECONDS), "Deben recibir estado inicial");
+            assertEquals(5, hostSnap.get().myChips);
+            assertEquals(5, clientSnap.get().myChips);
+
+            hostMgr.performLocalSurrender();
+            assertTrue(gameOverLatch.await(5, TimeUnit.SECONDS), "Debe sincronizarse fin de partida");
+
+            hostMgr.performLocalRematchReady();
+            assertTrue(oneReadyLatch.await(5, TimeUnit.SECONDS), "Ambos deben ver OK 1/2");
+            assertTrue(hostSnap.get().myRematchReady);
+            assertTrue(clientSnap.get().enemyRematchReady);
+            assertTrue(hostSnap.get().gameOver);
+
+            clientMgr.performLocalRematchReady();
+            assertTrue(rematchStartedLatch.await(5, TimeUnit.SECONDS), "Tras ambos OK debe iniciar nueva partida");
+            assertFalse(hostSnap.get().gameOver);
+            assertFalse(clientSnap.get().gameOver);
+            assertEquals(1, hostSnap.get().roundNumber);
+            assertEquals(5, hostSnap.get().myChips);
+            assertEquals(5, clientSnap.get().myChips);
+            assertFalse(hostSnap.get().myRematchReady);
+            assertFalse(clientSnap.get().myRematchReady);
+        } finally {
+            clientMgr.close();
+            hostMgr.close();
         }
     }
 }

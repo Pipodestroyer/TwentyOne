@@ -80,6 +80,8 @@ public class P2PManager {
 
     private volatile player hostPlayer;
     private volatile player clientPlayer;
+    private volatile boolean hostRematchReady;
+    private volatile boolean clientRematchReady;
     private Thread syncThread;
 
     public void setListener(Listener newListener) {
@@ -150,10 +152,11 @@ public class P2PManager {
             clientName = clientName + " (2)";
         }
 
-        byte startingChips = (byte) Math.min(127,
-                rules.initialChips + config.getJudgeBonusChips(rules.idJudge));
+        byte startingChips = rules.initialChips;
 
         synchronized (gameLock) {
+            hostRematchReady = false;
+            clientRematchReady = false;
             hostPlayer = new player(rules.hostName, startingChips);
             clientPlayer = new player(clientName, startingChips);
             config.setConfiguration(rules.idJudge, rules.betMode, trumpCard.getPool(), hostPlayer, clientPlayer);
@@ -179,6 +182,8 @@ public class P2PManager {
                         synchronized (gameLock) {
                             if (clientPlayer == null) continue;
                             clientSnap = GameStateSnapshot.fromGameFor(clientPlayer);
+                            clientSnap.myRematchReady = clientRematchReady;
+                            clientSnap.enemyRematchReady = hostRematchReady;
                         }
                         sendRawLine("STATE|" + clientSnap.serialize());
                     }
@@ -608,6 +613,14 @@ public class P2PManager {
         }
     }
 
+    public void performLocalRematchReady() {
+        if (isHost) {
+            executeActorCommand(hostPlayer, "REMATCH_OK");
+        } else {
+            sendToHost("CMD|REMATCH_OK");
+        }
+    }
+
     private void sendToHost(String msg) {
         if (!active) return;
         sendRawLine(msg);
@@ -660,6 +673,20 @@ public class P2PManager {
                     config.advanceToNextRound();
                     changed = true;
                 }
+            } else if ("REMATCH_OK".equals(cmd)) {
+                if (config.isRoundOver() && !config.isInGame()) {
+                    if (actor == hostPlayer) {
+                        hostRematchReady = true;
+                    } else if (actor == clientPlayer) {
+                        clientRematchReady = true;
+                    }
+                    if (hostRematchReady && clientRematchReady) {
+                        hostRematchReady = false;
+                        clientRematchReady = false;
+                        config.restartMatch();
+                    }
+                    changed = true;
+                }
             } else if (!config.isRoundOver() && config.isInGame() && config.getCurrentPlayer() == actor) {
                 if ("DRAW".equals(cmd)) {
                     if (!actor.isBusted()) {
@@ -691,7 +718,11 @@ public class P2PManager {
             synchronized (gameLock) {
                 if (hostPlayer == null || clientPlayer == null) return;
                 hostSnap = GameStateSnapshot.fromGameFor(hostPlayer);
+                hostSnap.myRematchReady = hostRematchReady;
+                hostSnap.enemyRematchReady = clientRematchReady;
                 clientSnap = GameStateSnapshot.fromGameFor(clientPlayer);
+                clientSnap.myRematchReady = clientRematchReady;
+                clientSnap.enemyRematchReady = hostRematchReady;
             }
             sendRawLine("STATE|" + clientSnap.serialize());
             latestSnapshot = hostSnap;
@@ -716,6 +747,8 @@ public class P2PManager {
 
     private void closeQuietly() {
         active = false;
+        hostRematchReady = false;
+        clientRematchReady = false;
         if (syncThread != null) {
             syncThread.interrupt();
             syncThread = null;

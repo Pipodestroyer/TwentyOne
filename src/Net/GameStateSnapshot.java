@@ -71,6 +71,8 @@ public class GameStateSnapshot {
     public boolean enemyStood;
     public boolean roundOver;
     public boolean gameOver;
+    public boolean myRematchReady;
+    public boolean enemyRematchReady;
     public String lastActionMessage;
     public List<CardView> myCards = new ArrayList<>();
     public List<CardView> enemyCards = new ArrayList<>();
@@ -254,7 +256,9 @@ public class GameStateSnapshot {
                     .append(pt.mine).append(',')
                     .append(pt.activeContinuous);
         }
-        sb.append(playedSb);
+        sb.append(playedSb).append('|')
+          .append(myRematchReady).append('|')
+          .append(enemyRematchReady);
         return sb.toString();
     }
 
@@ -337,7 +341,7 @@ public class GameStateSnapshot {
         s.summaryEnemyDelta = Integer.parseInt(parts[idx++]);
         s.summaryBless = Boolean.parseBoolean(parts[idx++]);
         if (idx < parts.length) {
-            String playedRaw = parts[idx];
+            String playedRaw = parts[idx++];
             if (!playedRaw.isEmpty()) {
                 for (String item : playedRaw.split(";")) {
                     if (item.isEmpty()) continue;
@@ -354,6 +358,12 @@ public class GameStateSnapshot {
                     }
                 }
             }
+        }
+        if (idx < parts.length) {
+            s.myRematchReady = Boolean.parseBoolean(parts[idx++]);
+        }
+        if (idx < parts.length) {
+            s.enemyRematchReady = Boolean.parseBoolean(parts[idx]);
         }
         return s;
     }

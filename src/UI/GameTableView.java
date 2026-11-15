@@ -3,14 +3,21 @@ package UI;
 import Game.config;
 import Net.GameStateSnapshot;
 import Net.P2PManager;
+import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
+import javafx.animation.PauseTransition;
 import javafx.animation.RotateTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.SequentialTransition;
+import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.control.Button;
@@ -60,7 +67,7 @@ public class GameTableView extends StackPane {
     private VBox roundResultBox;
     private Label roundResultTitle;
     private Label roundResultDetails;
-    private Button nextRoundBtn;
+    private Label roundCountdownLabel;
 
     private VBox trumpDrawerZone;
     private HBox trumpCardsContainer;
@@ -70,11 +77,24 @@ public class GameTableView extends StackPane {
 
     private StackPane pauseOverlay;
     private StackPane disconnectOverlay;
+    private StackPane gameOverOverlay;
+    private Label gameOverRematchLabel;
+    private Label gameOverTimerLabel;
+    private Button gameOverOkBtn;
+    private Timeline roundCountdownTimeline;
+    private int roundCountdownSeconds;
+    private Timeline gameOverTimeline;
+    private int gameOverSecondsLeft;
+    private ParallelTransition cardsExitAnim;
+
     private GameStateSnapshot currentSnapshot;
     private String lastRenderedKey;
     private int lastRenderedPlayedTrumpsCount = 0;
+    private int lastRenderedEnemyCardCount = 0;
+    private int lastRenderedMyCardCount = 0;
     private int lastRenderedRound = -1;
     private boolean wasRoundOver = false;
+    private boolean wasGameOver = false;
 
     public GameTableView(TwentyOneApp app, P2PManager p2pManager) {
         this.app = app;
@@ -106,6 +126,12 @@ public class GameTableView extends StackPane {
         trumpDrawerZone.setTranslateY(DRAWER_BODY_HEIGHT);
 
         getChildren().addAll(tableLayout, pauseIconBtn, trumpDrawerZone);
+
+        sceneProperty().addListener((_, _, newScene) -> {
+            if (newScene == null) {
+                stopAllTimersAndAnimations();
+            }
+        });
 
         p2pManager.setListener(new P2PManager.Listener() {
             @Override
@@ -244,15 +270,9 @@ public class GameTableView extends StackPane {
         roundResultTitle.setWrapText(true);
         roundResultDetails = PixelUI.label("", 11.5, false);
         roundResultDetails.setWrapText(true);
-        nextRoundBtn = PixelUI.invertedButton("SIGUIENTE RONDA", 12, 175, 36);
-        nextRoundBtn.setOnAction(_ -> {
-            if (currentSnapshot != null && currentSnapshot.gameOver) {
-                app.showMainMenu();
-            } else {
-                p2pManager.performLocalNextRound();
-            }
-        });
-        roundResultBox.getChildren().addAll(roundResultTitle, roundResultDetails, nextRoundBtn);
+        roundCountdownLabel = PixelUI.label("", 12, true);
+        roundCountdownLabel.setStyle("-fx-text-fill: #19498A;");
+        roundResultBox.getChildren().addAll(roundResultTitle, roundResultDetails, roundCountdownLabel);
 
         right.getChildren().addAll(roundInfoLabel, turnLabel, actionMsgLabel, drawBtn, standBtn, roundResultBox);
         return right;
@@ -349,10 +369,19 @@ public class GameTableView extends StackPane {
         lastRenderedKey = key;
         this.currentSnapshot = s;
 
-        if (s.roundNumber != lastRenderedRound) {
+        boolean isRematchReset = wasGameOver && !s.gameOver;
+        boolean isNewRound = (s.roundNumber != lastRenderedRound) && !isRematchReset;
+
+        if (isNewRound) {
+            stopRoundCountdown();
+            stopCardsExitAnim();
+            resetCardRowsVisualState();
             lastRenderedRound = s.roundNumber;
             lastRenderedPlayedTrumpsCount = 0;
+            lastRenderedEnemyCardCount = 0;
+            lastRenderedMyCardCount = 0;
             wasRoundOver = false;
+            wasGameOver = false;
         }
 
         // Left counters
@@ -379,43 +408,6 @@ public class GameTableView extends StackPane {
             betTextLabel.setText("APUESTA EN MESA: " + s.sharedBet);
         }
 
-        // Enemy Cards Row (Black ? hidden card + Red Hearts visible cards; flip reveal on roundOver)
-        boolean justRevealed = s.roundOver && !wasRoundOver;
-        enemyCardsRow.getChildren().clear();
-        for (GameStateSnapshot.CardView cv : s.enemyCards) {
-            if (cv.number < 0) {
-                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getEnemyHiddenCard(3)));
-            } else if (cv.hiddenCard && justRevealed) {
-                enemyCardsRow.getChildren().add(makeFlipRevealCardNode(cv.number));
-            } else if (cv.hiddenCard) {
-                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getPlayerHiddenNumberCard(cv.number, 3)));
-            } else {
-                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getEnemyVisibleNumberCard(cv.number, 3)));
-            }
-        }
-        wasRoundOver = s.roundOver;
-
-        // Player Cards Row (Black hidden card + Blue Diamonds visible cards)
-        myCardsRow.getChildren().clear();
-        for (GameStateSnapshot.CardView cv : s.myCards) {
-            Image img = cv.hiddenCard
-                    ? AssetManager.getPlayerHiddenNumberCard(cv.number, 3)
-                    : AssetManager.getPlayerVisibleNumberCard(cv.number, 3);
-            myCardsRow.getChildren().add(makeCardNode(img));
-        }
-
-        // Dropped Trump Cards in Center Table with drop animation & hover explanation
-        continuousTrumpsRow.getChildren().clear();
-        trumpHoverBanner.setVisible(false);
-        trumpHoverBanner.setText("");
-        int totalPlayed = s.playedTrumps.size();
-        for (int i = 0; i < totalPlayed; i++) {
-            GameStateSnapshot.PlayedTrumpView pt = s.playedTrumps.get(i);
-            boolean animateDrop = i >= lastRenderedPlayedTrumpsCount;
-            continuousTrumpsRow.getChildren().add(makeDroppedTrumpNode(pt, i, animateDrop));
-        }
-        lastRenderedPlayedTrumpsCount = totalPlayed;
-
         // Right controls
         roundInfoLabel.setText("RONDA " + s.roundNumber + " (META: " + s.targetScore + ")");
         if (s.gameOver) {
@@ -434,40 +426,413 @@ public class GameTableView extends StackPane {
         drawBtn.setOpacity((canAct && !isBusted) ? 1.0 : 0.35);
         standBtn.setOpacity(canAct ? 1.0 : 0.4);
 
-        // Round summary / game over box
-        if (s.roundOver || s.gameOver) {
+        // Bottom Trump Cards Drawer
+        renderTrumpDrawer(s, canAct);
+
+        boolean justRevealed = s.roundOver && !wasRoundOver;
+        if (justRevealed && s.summaryMyDelta != 0) {
+            animateChipTransfer(s.summaryMyDelta);
+        }
+        wasRoundOver = s.roundOver;
+
+        if (isRematchReset) {
+            stopGameOverCountdown();
+            closeGameOverModal();
+            stopRoundCountdown();
+            wasGameOver = false;
+            wasRoundOver = false;
+            lastRenderedRound = s.roundNumber;
+            lastRenderedPlayedTrumpsCount = 0;
+            lastRenderedEnemyCardCount = 0;
+            lastRenderedMyCardCount = 0;
+            roundResultBox.setVisible(false);
+            roundResultBox.setManaged(false);
+            playCardsSlideDownFadeOut(() -> renderTableCardsAndTrumps(
+                    this.currentSnapshot != null ? this.currentSnapshot : s, false));
+            return;
+        }
+
+        if (cardsExitAnim == null || cardsExitAnim.getStatus() != Animation.Status.RUNNING) {
+            renderTableCardsAndTrumps(s, justRevealed);
+        }
+
+        if (s.gameOver) {
+            stopRoundCountdown();
+            roundResultBox.setVisible(false);
+            roundResultBox.setManaged(false);
+            openOrUpdateGameOverModal(s);
+            wasGameOver = true;
+        } else if (s.roundOver) {
+            closeGameOverModal();
+            stopGameOverCountdown();
+            wasGameOver = false;
             roundResultBox.setVisible(true);
             roundResultBox.setManaged(true);
-            if (s.gameOver) {
-                boolean iWon = s.myChips > s.enemyChips;
-                roundResultTitle.setText(iWon ? "VICTORIA!" : "DERROTA");
-                roundResultDetails.setText(s.summaryReason + "\nFichas finales: " + s.myChips + " vs " + s.enemyChips);
-                nextRoundBtn.setText("VOLVER AL MENU");
-            } else {
-                String deltaStr = (s.summaryMyDelta >= 0 ? "+" : "") + s.summaryMyDelta + " fichas";
-                roundResultTitle.setText("GANADOR: " + s.summaryWinner);
-                roundResultDetails.setText(s.summaryReason + "\nResultado: " + deltaStr
-                        + (s.summaryBless ? "\n(Bless salvo tus fichas)" : ""));
-                nextRoundBtn.setText("SIGUIENTE RONDA");
+            String deltaStr = (s.summaryMyDelta >= 0 ? "+" : "") + s.summaryMyDelta + " fichas";
+            roundResultTitle.setText("GANADOR: " + s.summaryWinner);
+            roundResultDetails.setText(s.summaryReason + "\nResultado: " + deltaStr
+                    + (s.summaryBless ? "\n(Bless salvo tus fichas)" : ""));
+            if (roundCountdownTimeline == null) {
+                startRoundCountdown();
             }
         } else {
+            closeGameOverModal();
+            stopGameOverCountdown();
+            stopRoundCountdown();
+            wasGameOver = false;
             roundResultBox.setVisible(false);
             roundResultBox.setManaged(false);
         }
+    }
 
-        // Bottom Trump Cards Drawer
-        renderTrumpDrawer(s, canAct);
+    private void renderTableCardsAndTrumps(GameStateSnapshot s, boolean justRevealed) {
+        if (s == null) return;
+        resetCardRowsVisualState();
+
+        int prevEnemyCount = lastRenderedEnemyCardCount;
+        int prevMyCount = lastRenderedMyCardCount;
+        boolean initialDealBatch = (prevEnemyCount == 0 && prevMyCount == 0);
+
+        enemyCardsRow.getChildren().clear();
+        for (int i = 0; i < s.enemyCards.size(); i++) {
+            GameStateSnapshot.CardView cv = s.enemyCards.get(i);
+            boolean animateDeal = (i >= prevEnemyCount);
+            double dealDelay = animateDeal ? (i - prevEnemyCount) * 110.0 : 0.0;
+            if (cv.number < 0) {
+                enemyCardsRow.getChildren().add(makeDealerCardNode(AssetManager.getEnemyHiddenCard(3), animateDeal, dealDelay));
+            } else if (cv.hiddenCard && justRevealed) {
+                enemyCardsRow.getChildren().add(makeFlipRevealCardNode(cv.number));
+            } else if (cv.hiddenCard) {
+                enemyCardsRow.getChildren().add(makeCardNode(AssetManager.getPlayerHiddenNumberCard(cv.number, 3)));
+            } else {
+                enemyCardsRow.getChildren().add(makeDealerCardNode(AssetManager.getEnemyVisibleNumberCard(cv.number, 3), animateDeal, dealDelay));
+            }
+        }
+        lastRenderedEnemyCardCount = s.enemyCards.size();
+
+        myCardsRow.getChildren().clear();
+        double baseMyDelay = initialDealBatch ? s.enemyCards.size() * 110.0 : 0.0;
+        for (int i = 0; i < s.myCards.size(); i++) {
+            GameStateSnapshot.CardView cv = s.myCards.get(i);
+            boolean animateDeal = (i >= prevMyCount);
+            double dealDelay = animateDeal ? (baseMyDelay + (i - prevMyCount) * 110.0) : 0.0;
+            Image img = cv.hiddenCard
+                    ? AssetManager.getPlayerHiddenNumberCard(cv.number, 3)
+                    : AssetManager.getPlayerVisibleNumberCard(cv.number, 3);
+            myCardsRow.getChildren().add(makeDealerCardNode(img, animateDeal, dealDelay));
+        }
+        lastRenderedMyCardCount = s.myCards.size();
+
+        continuousTrumpsRow.getChildren().clear();
+        trumpHoverBanner.setVisible(false);
+        trumpHoverBanner.setText("");
+        int totalPlayed = s.playedTrumps.size();
+        for (int i = 0; i < totalPlayed; i++) {
+            GameStateSnapshot.PlayedTrumpView pt = s.playedTrumps.get(i);
+            boolean animateDrop = i >= lastRenderedPlayedTrumpsCount;
+            continuousTrumpsRow.getChildren().add(makeDroppedTrumpNode(pt, i, animateDrop));
+        }
+        lastRenderedPlayedTrumpsCount = totalPlayed;
+    }
+
+    private ImageView makeDealerCardNode(Image img, boolean animateDeal, double delayMs) {
+        ImageView iv = makeCardNode(img);
+        if (!animateDeal) {
+            return iv;
+        }
+        double startX = Math.max(580.0, getWidth() > 0 ? getWidth() * 0.72 + 180.0 : 640.0);
+        iv.setTranslateX(startX);
+        iv.setRotate(-6.0);
+        iv.setOpacity(0.85);
+
+        TranslateTransition slide = new TranslateTransition(Duration.millis(320), iv);
+        slide.setDelay(Duration.millis(delayMs));
+        slide.setFromX(startX);
+        slide.setToX(0.0);
+        slide.setInterpolator(Interpolator.EASE_OUT);
+
+        RotateTransition rot = new RotateTransition(Duration.millis(320), iv);
+        rot.setDelay(Duration.millis(delayMs));
+        rot.setFromAngle(-6.0);
+        rot.setToAngle(0.0);
+        rot.setInterpolator(Interpolator.EASE_OUT);
+
+        FadeTransition fade = new FadeTransition(Duration.millis(180), iv);
+        fade.setDelay(Duration.millis(delayMs));
+        fade.setFromValue(0.85);
+        fade.setToValue(1.0);
+
+        new ParallelTransition(slide, rot, fade).play();
+        return iv;
     }
 
     private ImageView makeCardNode(Image img) {
         ImageView iv = new ImageView(img);
         iv.setSmooth(false);
         iv.setPreserveRatio(true);
-        FadeTransition ft = new FadeTransition(Duration.millis(140), iv);
-        ft.setFromValue(0.65);
-        ft.setToValue(1.0);
-        ft.play();
         return iv;
+    }
+
+    private void animateChipTransfer(int myDelta) {
+        if (myDelta == 0) return;
+        Platform.runLater(() -> {
+            if (getScene() == null) return;
+            boolean toPlayer = myDelta > 0;
+            FlowPane fromPane = toPlayer ? enemyChipsVisualPane : myChipsVisualPane;
+            FlowPane toPane = toPlayer ? myChipsVisualPane : enemyChipsVisualPane;
+            Bounds fromScene = fromPane.localToScene(fromPane.getBoundsInLocal());
+            Bounds toScene = toPane.localToScene(toPane.getBoundsInLocal());
+            if (fromScene == null || toScene == null) return;
+
+            Point2D startPt = sceneToLocal(fromScene.getMinX() + 14.0, fromScene.getMinY() + 10.0);
+            Point2D endPt = sceneToLocal(toScene.getMinX() + 14.0, toScene.getMinY() + 10.0);
+            if (startPt == null || endPt == null) return;
+
+            int visualCoins = Math.min(3, Math.abs(myDelta));
+            Image chipImg = toPlayer ? AssetManager.getEnemyChipImage(2) : AssetManager.getPlayerChipImage(2);
+            for (int i = 0; i < visualCoins; i++) {
+                ImageView flyingChip = new ImageView(chipImg);
+                flyingChip.setSmooth(false);
+                flyingChip.setManaged(false);
+                flyingChip.setMouseTransparent(true);
+                flyingChip.setLayoutX(startPt.getX() + i * 8.0);
+                flyingChip.setLayoutY(startPt.getY());
+                getChildren().add(flyingChip);
+
+                double dx = endPt.getX() - startPt.getX();
+                double dy = endPt.getY() - startPt.getY();
+
+                TranslateTransition move = new TranslateTransition(Duration.millis(560), flyingChip);
+                move.setDelay(Duration.millis(i * 95.0));
+                move.setFromX(0.0);
+                move.setFromY(0.0);
+                move.setToX(dx);
+                move.setToY(dy);
+                move.setInterpolator(Interpolator.EASE_IN);
+
+                ScaleTransition pulse = new ScaleTransition(Duration.millis(280), flyingChip);
+                pulse.setDelay(Duration.millis(i * 95.0));
+                pulse.setFromX(1.0);
+                pulse.setFromY(1.0);
+                pulse.setToX(1.32);
+                pulse.setToY(1.32);
+                pulse.setAutoReverse(true);
+                pulse.setCycleCount(2);
+
+                ParallelTransition pt = new ParallelTransition(move, pulse);
+                pt.setOnFinished(_ -> getChildren().remove(flyingChip));
+                pt.play();
+            }
+        });
+    }
+
+    private void playCardsSlideDownFadeOut(Runnable onFinished) {
+        stopCardsExitAnim();
+        if (enemyCardsRow.getChildren().isEmpty()
+                && myCardsRow.getChildren().isEmpty()
+                && continuousTrumpsRow.getChildren().isEmpty()) {
+            if (onFinished != null) onFinished.run();
+            return;
+        }
+        ParallelTransition exit = new ParallelTransition();
+        for (javafx.scene.Node row : new javafx.scene.Node[]{enemyCardsRow, continuousTrumpsRow, myCardsRow}) {
+            TranslateTransition down = new TranslateTransition(Duration.millis(380), row);
+            down.setFromY(0.0);
+            down.setToY(95.0);
+            down.setInterpolator(Interpolator.EASE_IN);
+
+            FadeTransition fade = new FadeTransition(Duration.millis(380), row);
+            fade.setFromValue(row.getOpacity());
+            fade.setToValue(0.0);
+            exit.getChildren().addAll(down, fade);
+        }
+        cardsExitAnim = exit;
+        exit.setOnFinished(_ -> {
+            cardsExitAnim = null;
+            if (onFinished != null) {
+                onFinished.run();
+            }
+        });
+        exit.play();
+    }
+
+    private void stopCardsExitAnim() {
+        if (cardsExitAnim != null) {
+            cardsExitAnim.stop();
+            cardsExitAnim = null;
+        }
+    }
+
+    private void resetCardRowsVisualState() {
+        for (javafx.scene.Node row : new javafx.scene.Node[]{enemyCardsRow, continuousTrumpsRow, myCardsRow}) {
+            row.setTranslateY(0.0);
+            row.setOpacity(1.0);
+        }
+    }
+
+    private void startRoundCountdown() {
+        stopRoundCountdown();
+        roundCountdownSeconds = 10;
+        roundCountdownLabel.setText("SIGUIENTE RONDA EN 10s...");
+        Timeline tl = new Timeline(new KeyFrame(Duration.seconds(1), _ -> {
+            roundCountdownSeconds--;
+            if (roundCountdownSeconds > 0) {
+                roundCountdownLabel.setText("SIGUIENTE RONDA EN " + roundCountdownSeconds + "s...");
+            } else {
+                stopRoundCountdown();
+                roundCountdownLabel.setText("INICIANDO...");
+                playCardsSlideDownFadeOut(() -> {
+                    if (getScene() == null || currentSnapshot == null
+                            || !currentSnapshot.roundOver || currentSnapshot.gameOver) {
+                        return;
+                    }
+                    if (p2pManager.isHost()) {
+                        p2pManager.performLocalNextRound();
+                    } else {
+                        int waitedRound = currentSnapshot.roundNumber;
+                        PauseTransition fallback = new PauseTransition(Duration.millis(800));
+                        fallback.setOnFinished(_ -> {
+                            if (getScene() != null && currentSnapshot != null
+                                    && currentSnapshot.roundOver && !currentSnapshot.gameOver
+                                    && currentSnapshot.roundNumber == waitedRound) {
+                                p2pManager.performLocalNextRound();
+                            }
+                        });
+                        fallback.play();
+                    }
+                });
+            }
+        }));
+        tl.setCycleCount(10);
+        roundCountdownTimeline = tl;
+        tl.play();
+    }
+
+    private void stopRoundCountdown() {
+        if (roundCountdownTimeline != null) {
+            roundCountdownTimeline.stop();
+            roundCountdownTimeline = null;
+        }
+    }
+
+    private void openOrUpdateGameOverModal(GameStateSnapshot s) {
+        if (gameOverOverlay == null) {
+            gameOverOverlay = new StackPane();
+            gameOverOverlay.setStyle("-fx-background-color: rgba(255, 255, 255, 0.85);");
+
+            VBox box = new VBox(14);
+            box.setAlignment(Pos.CENTER);
+            box.setMaxWidth(450);
+            box.setMaxHeight(330);
+            box.setPadding(new Insets(26));
+            box.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #101010; -fx-border-width: 3;");
+
+            Label title = PixelUI.label("PARTIDA FINALIZADA", 20, true);
+
+            boolean iWon = s.myChips > s.enemyChips;
+            String outcomeText = iWon ? "GANASTE LA PARTIDA!" : (s.myChips < s.enemyChips ? "PERDISTE LA PARTIDA" : "EMPATE FINAL");
+            Label outcomeLbl = PixelUI.label(outcomeText, 16, true);
+            outcomeLbl.setStyle("-fx-text-fill: " + (iWon ? "#19498A" : "#B82535") + ";");
+
+            Label detailsLbl = PixelUI.label(
+                    s.summaryReason + "\nFichas finales -> Tu: " + s.myChips + " | Rival: " + s.enemyChips,
+                    12.5,
+                    false
+            );
+            detailsLbl.setWrapText(true);
+
+            gameOverRematchLabel = PixelUI.label("", 12, true);
+            gameOverRematchLabel.setWrapText(true);
+
+            gameOverTimerLabel = PixelUI.label("", 11.5, false);
+            gameOverTimerLabel.setStyle("-fx-text-fill: #B82535;");
+            gameOverTimerLabel.setWrapText(true);
+
+            HBox btnRow = new HBox(14);
+            btnRow.setAlignment(Pos.CENTER);
+
+            gameOverOkBtn = PixelUI.invertedButton("OK", 14, 150, 42);
+            gameOverOkBtn.setOnAction(_ -> p2pManager.performLocalRematchReady());
+
+            Button exitBtn = PixelUI.pixelButton("SALIR", 13, 120, 42);
+            exitBtn.setOnAction(_ -> {
+                stopAllTimersAndAnimations();
+                p2pManager.close();
+                app.showMainMenu();
+            });
+
+            btnRow.getChildren().addAll(gameOverOkBtn, exitBtn);
+            box.getChildren().addAll(title, outcomeLbl, detailsLbl, gameOverRematchLabel, gameOverTimerLabel, btnRow);
+            gameOverOverlay.getChildren().add(box);
+            getChildren().add(gameOverOverlay);
+            startGameOverCountdown();
+        }
+
+        if (s.myRematchReady) {
+            gameOverOkBtn.setText("ESPERANDO...");
+            gameOverOkBtn.setDisable(true);
+            gameOverOkBtn.setOpacity(0.5);
+        } else {
+            gameOverOkBtn.setText("OK");
+            gameOverOkBtn.setDisable(false);
+            gameOverOkBtn.setOpacity(1.0);
+        }
+
+        if (s.myRematchReady && s.enemyRematchReady) {
+            gameOverRematchLabel.setText("Ambos confirmaron. Iniciando nueva partida... (2/2)");
+        } else if (s.myRematchReady) {
+            gameOverRematchLabel.setText("Esperando confirmacion del rival para otra partida... (1/2)");
+        } else if (s.enemyRematchReady) {
+            gameOverRematchLabel.setText("El rival quiere jugar otra partida. Pulsa OK! (1/2)");
+        } else {
+            gameOverRematchLabel.setText("Pulsa OK para jugar otra partida (0/2 listos)");
+        }
+    }
+
+    private void startGameOverCountdown() {
+        stopGameOverCountdown();
+        gameOverSecondsLeft = 30;
+        if (gameOverTimerLabel != null) {
+            gameOverTimerLabel.setText("La partida terminara en 30s si ambos no confirman.");
+        }
+        Timeline tl = new Timeline(new KeyFrame(Duration.seconds(1), _ -> {
+            gameOverSecondsLeft--;
+            if (gameOverSecondsLeft > 0) {
+                if (gameOverTimerLabel != null) {
+                    gameOverTimerLabel.setText("La partida terminara en " + gameOverSecondsLeft + "s si ambos no confirman.");
+                }
+            } else {
+                stopAllTimersAndAnimations();
+                p2pManager.close();
+                app.showMainMenu();
+            }
+        }));
+        tl.setCycleCount(30);
+        gameOverTimeline = tl;
+        tl.play();
+    }
+
+    private void stopGameOverCountdown() {
+        if (gameOverTimeline != null) {
+            gameOverTimeline.stop();
+            gameOverTimeline = null;
+        }
+    }
+
+    private void closeGameOverModal() {
+        if (gameOverOverlay != null) {
+            getChildren().remove(gameOverOverlay);
+            gameOverOverlay = null;
+            gameOverRematchLabel = null;
+            gameOverTimerLabel = null;
+            gameOverOkBtn = null;
+        }
+    }
+
+    private void stopAllTimersAndAnimations() {
+        stopRoundCountdown();
+        stopGameOverCountdown();
+        stopCardsExitAnim();
     }
 
     private ImageView makeFlipRevealCardNode(int revealedNumber) {
@@ -502,10 +867,9 @@ public class GameTableView extends StackPane {
     }
 
     private StackPane makeDroppedTrumpNode(GameStateSnapshot.PlayedTrumpView pt, int index, boolean animateDrop) {
-        String borderColor = pt.mine ? "#19498A" : "#B82535";
         StackPane cardFrame = new StackPane();
-        cardFrame.setPadding(new Insets(3));
-        cardFrame.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: " + borderColor + "; -fx-border-width: 2;");
+        cardFrame.setPadding(Insets.EMPTY);
+        cardFrame.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
         cardFrame.setCursor(Cursor.HAND);
 
         if ("CONTINUOUS".equals(pt.type) && !pt.activeContinuous) {
@@ -632,6 +996,8 @@ public class GameTableView extends StackPane {
     }
 
     private void showDisconnectModal(String reason) {
+        stopAllTimersAndAnimations();
+        closeGameOverModal();
         if (disconnectOverlay != null) return;
         disconnectOverlay = new StackPane();
         disconnectOverlay.setStyle("-fx-background-color: rgba(255, 255, 255, 0.88);");
@@ -647,7 +1013,11 @@ public class GameTableView extends StackPane {
         Label msg = PixelUI.label(reason, 13, false);
         msg.setWrapText(true);
         Button menuBtn = PixelUI.invertedButton("VOLVER AL MENU", 13, 180, 40);
-        menuBtn.setOnAction(_ -> app.showMainMenu());
+        menuBtn.setOnAction(_ -> {
+            stopAllTimersAndAnimations();
+            p2pManager.close();
+            app.showMainMenu();
+        });
 
         box.getChildren().addAll(title, msg, menuBtn);
         disconnectOverlay.getChildren().add(box);
