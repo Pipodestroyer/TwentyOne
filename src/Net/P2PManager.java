@@ -265,7 +265,9 @@ public class P2PManager {
     }
 
     public static String normalizeWsUrl(String rawUrl) {
-        String url = (rawUrl == null || rawUrl.isBlank()) ? "ws://127.0.0.1:8080" : rawUrl.trim();
+        String url = (rawUrl == null || rawUrl.isBlank())
+                ? "wss://twentyone-production.up.railway.app"
+                : rawUrl.trim();
         if (url.startsWith("https://")) {
             url = "wss://" + url.substring("https://".length());
         } else if (url.startsWith("http://")) {
@@ -285,7 +287,9 @@ public class P2PManager {
     }
 
     public static String normalizeHttpUrl(String rawUrl) {
-        String url = (rawUrl == null || rawUrl.isBlank()) ? "http://127.0.0.1:8080" : rawUrl.trim();
+        String url = (rawUrl == null || rawUrl.isBlank())
+                ? "https://twentyone-production.up.railway.app"
+                : rawUrl.trim();
         if (url.startsWith("wss://")) {
             url = "https://" + url.substring("wss://".length());
         } else if (url.startsWith("ws://")) {

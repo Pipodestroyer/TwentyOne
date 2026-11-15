@@ -7,6 +7,8 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.transform.Scale;
@@ -19,6 +21,7 @@ import java.io.IOException;
 public class TwentyOneApp extends Application {
     public static final double BASE_WIDTH = 1080.0;
     public static final double BASE_HEIGHT = 680.0;
+    public static final String DEFAULT_RAILWAY_URL = "https://twentyone-production.up.railway.app";
 
     private Stage primaryStage;
     private StackPane rootContainer;
@@ -35,7 +38,7 @@ public class TwentyOneApp extends Application {
 
     private static String resolveDefaultRailwayUrl() {
         String env = System.getenv("TWENTYONE_SERVER_URL");
-        return (env != null && !env.isBlank()) ? env.trim() : "ws://127.0.0.1:8080";
+        return (env != null && !env.isBlank()) ? env.trim() : DEFAULT_RAILWAY_URL;
     }
 
     public Pane createScaledRoot() {
@@ -83,10 +86,21 @@ public class TwentyOneApp extends Application {
 
         double[] size = computeDefaultWindowSize();
         Scene scene = new Scene(createScaledRoot(), size[0], size[1]);
+        attachGlobalShortcuts(scene);
         configureStage(stage, scene, borderless);
 
         showMainMenu();
         stage.show();
+    }
+
+    public void attachGlobalShortcuts(Scene scene) {
+        if (scene == null) return;
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.F11) {
+                setBorderless(!isBorderless());
+                e.consume();
+            }
+        });
     }
 
     private double[] computeDefaultWindowSize() {

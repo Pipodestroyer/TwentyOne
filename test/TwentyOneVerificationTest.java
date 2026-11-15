@@ -16,6 +16,8 @@ import UI.TwentyOneApp;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.text.Font;
 import org.junit.jupiter.api.BeforeAll;
@@ -331,6 +333,7 @@ public class TwentyOneVerificationTest {
             P2PManager p2p = new P2PManager();
             try {
                 TwentyOneApp app = new TwentyOneApp();
+                assertTrue(app.getRailwayServerUrl().contains("twentyone-production.up.railway.app"));
                 MainMenuView menu = new MainMenuView(app);
                 LobbyView lobby = new LobbyView(app, discovery, p2p);
                 GameTableView table = new GameTableView(app, p2p);
@@ -352,7 +355,16 @@ public class TwentyOneVerificationTest {
                 // Verify proportional viewport scaling across monitor resolutions
                 Pane scaledRoot = app.createScaledRoot();
                 Scene testScene = new Scene(scaledRoot, 1080, 680);
+                app.attachGlobalShortcuts(testScene);
                 app.getRootContainer().getChildren().setAll(menu);
+
+                // Verify F11 shortcut toggles borderless mode
+                assertFalse(app.isBorderless());
+                KeyEvent f11 = new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F11, false, false, false, false);
+                testScene.getRoot().fireEvent(f11);
+                assertTrue(app.isBorderless());
+                testScene.getRoot().fireEvent(f11);
+                assertFalse(app.isBorderless());
 
                 scaledRoot.resize(1080, 680);
                 scaledRoot.layout();
