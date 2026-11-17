@@ -71,7 +71,7 @@ public class LobbyView extends StackPane {
             app.showMainMenu();
         });
 
-        Label titleLbl = PixelUI.label("MULTIJUGADOR (ONLINE + LAN)", 20, true);
+        Label titleLbl = PixelUI.label("JUGAR", 20, true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Label playerLbl = PixelUI.label("JUGADOR: " + app.getPlayerName().toUpperCase(), 14, true);
