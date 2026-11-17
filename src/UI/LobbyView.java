@@ -114,11 +114,11 @@ public class LobbyView extends StackPane {
         panel.setPadding(new Insets(16));
         panel.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #101010; -fx-border-width: 2;");
 
-        Label header = PixelUI.label("HOSTEAR PARTIDA (TUS REGLAS)", 15.5, true);
+        Label header = PixelUI.label("HOSTEAR PARTIDA", 15.5, true);
 
         // Mode toggles: Online open (without code) by default, toggleable to LAN P2P or password-protected room
-        PixelUI.PixelCheckBox lanModeCheck = pixelCheckBox("Modo LAN (Red Local P2P)", false);
-        PixelUI.PixelCheckBox passwordRoomCheck = pixelCheckBox("Requiere contrasena (codigo 4 digitos)", false);
+        PixelUI.PixelCheckBox lanModeCheck = pixelCheckBox("LAN", false);
+        PixelUI.PixelCheckBox passwordRoomCheck = pixelCheckBox("Requiere contraseña", false);
 
         // Payout / Bet Type (Normal, Deficit, Merma)
         Label judgeTitle = PixelUI.label("TIPO DE APUESTA (marca varios para aleatorio):", 12.5, true);
@@ -259,7 +259,7 @@ public class LobbyView extends StackPane {
         panel.setPadding(new Insets(16));
         panel.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #101010; -fx-border-width: 2;");
 
-        Label header = PixelUI.label("BUSCADOR DE SERVERS (PUBLICAS + LAN)", 15.5, true);
+        Label header = PixelUI.label("BUSCADOR DE PARTIDAS", 15.5, true);
         HBox scanHeaderRow = new HBox(10);
         scanHeaderRow.setAlignment(Pos.CENTER_LEFT);
         scanStatusLabel = PixelUI.label("Buscando partidas publicas y LAN...", 11.5, false);
@@ -287,7 +287,7 @@ public class LobbyView extends StackPane {
                 + "-fx-border-color: #101010; -fx-border-width: 2;");
 
         // Join by 4-digit room password
-        Label codeTitle = PixelUI.label("UNIRSE CON CONTRASENA (4 DIGITOS):", 12.5, true);
+        Label codeTitle = PixelUI.label("UNIRSE CON CONTRASEÑA:", 12.5, true);
         HBox codeBox = new HBox(10);
         codeBox.setAlignment(Pos.CENTER_LEFT);
         TextField codeField = PixelUI.pixelField("", 120);
@@ -296,7 +296,7 @@ public class LobbyView extends StackPane {
         joinCodeBtn.setOnAction(_ -> {
             String code = codeField.getText().trim();
             if (!code.matches("\\d{4}")) {
-                feedbackLabel.setText("Ingresa una contrasena valida de 4 digitos.");
+                feedbackLabel.setText("Ingresa una contrasena valida.");
                 return;
             }
             connectToRailwayCode(code);
@@ -304,11 +304,11 @@ public class LobbyView extends StackPane {
         codeBox.getChildren().addAll(codeField, joinCodeBtn);
 
         // Direct LAN connect
-        Label manualTitle = PixelUI.label("CONEXION DIRECTA LAN (IP):", 12.5, true);
+        Label manualTitle = PixelUI.label("CONEXION DIRECTA:", 12.5, true);
         HBox manualBox = new HBox(10);
         manualBox.setAlignment(Pos.CENTER_LEFT);
         TextField ipField = PixelUI.pixelField("127.0.0.1", 190);
-        Button connectBtn = PixelUI.pixelButton("CONECTAR LAN", 12.5, 135, 34);
+        Button connectBtn = PixelUI.pixelButton("CONECTAR", 12.5, 135, 34);
 
         connectBtn.setOnAction(_ -> {
             String ip = ipField.getText().trim();
@@ -492,7 +492,7 @@ public class LobbyView extends StackPane {
                 code -> Platform.runLater(() -> {
                     if (!isPublic && waitingCodeLabel != null) {
                         waitingCodeLabel.setText("CONTRASENA: " + code);
-                        feedbackLabel.setText("Sala privada creada. Contrasena: " + code);
+                        feedbackLabel.setText("Sala privada creada. Contraseña: " + code);
                     } else {
                         feedbackLabel.setText("Sala online creada, esperando a jugadores...");
                     }

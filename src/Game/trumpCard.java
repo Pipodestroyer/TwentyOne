@@ -104,7 +104,6 @@ public class trumpCard {
             config.setLastActionMessage(user.getName() + " uso " + num + "-Card, pero el " + num + " no estaba en la piscina.");
         }
     }
-
     static {
         pool.add(new trumpCard(
                 "Bless",
@@ -390,6 +389,10 @@ public class trumpCard {
                 (user, _) -> {
                     if (numberCard.getPool().isEmpty()) {
                         config.setLastActionMessage("No quedan numeros en la piscina.");
+                        return;
+                    }
+                    if (config.getCurrentPlayer().isBusted()) {
+                        config.setLastActionMessage("Estas sobre el objetivo.");
                         return;
                     }
                     int currentSum = user.getTotalNumberSum();

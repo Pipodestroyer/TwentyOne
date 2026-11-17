@@ -17,14 +17,14 @@ public class config {
     private static byte idJudge = JUDGE_HOST;
     private static byte betMode = BET_SINGLE;
     private static byte currentBet;
-    private static byte originalBet; // Aka round number
+    private static byte originalBet; 
     private static byte initialChipsPerPlayer = (byte) 7;
     private static player player1;
     private static player player2;
     private static player nextPlayer;
     private static player currentPlayer;
     private static player lastLoser;
-    private static byte numberCardScore; // Go for 21
+    private static byte numberCardScore; 
     private static boolean inGame;
     private static boolean roundOver;
     private static String lastActionMessage = "";
@@ -98,9 +98,9 @@ public class config {
 
     public static String getJudgeName(byte idJudge) {
         return switch (idJudge) {
-            case JUDGE_BANK -> "Deficit (+6 fichas, nadie se queda con la apuesta)";
-            case JUDGE_MAFIA -> "Merma (+2 fichas, ganador pierde 1 ficha tras R1)";
-            default -> "Normal (+0 fichas, ganador se queda con la apuesta)";
+            case JUDGE_BANK -> "Deficit";
+            case JUDGE_MAFIA -> "Merma";
+            default -> "Normal";
         };
     }
 
@@ -114,8 +114,8 @@ public class config {
 
     public static String getBetModeName(byte betMode) {
         return (betMode == BET_DOUBLE)
-                ? "Individual (solo subes la del rival y bajas la tuya)"
-                : "Unica (ambos comparten, suben y bajan la misma apuesta)";
+                ? "Individual"
+                : "Unica";
     }
 
     public static String getBetModeShortName(byte betMode) {
@@ -433,13 +433,10 @@ public class config {
 
             int winnerGain;
             if (idJudge == JUDGE_BANK) {
-                // Deficit: nadie se queda con las fichas apostadas
                 winnerGain = 0;
             } else if (idJudge == JUDGE_MAFIA && originalBet > 1) {
-                // Merma: despues de la primera ronda, el ganador pierde una ficha de las fichas apostadas
                 winnerGain = Math.max(0, transferred - 1);
             } else {
-                // Normal (o Merma en ronda 1): el ganador se queda con las fichas apostadas
                 winnerGain = transferred;
             }
             int winnerNewChips = Math.min(127, winner.getChips() + winnerGain);

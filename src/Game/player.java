@@ -79,8 +79,6 @@ public class player {
         return sum;
     }
 
-    // Methods for the inventory (Maps)
-
     public void addNumber(byte number) {
         numberCard.removeFromPool(number);
         numberCards.add(new numberCard(number));
