@@ -6,11 +6,16 @@ import java.util.Random;
 import java.util.Set;
 
 public class numberCard {
+    public static final byte SKULL_CARD = 99;
     private final byte number;
     private player hiddenTo;
     private static Set<numberCard> pool = new HashSet<>();
 
-    numberCard(byte number) {
+    public static boolean isSkullCard(int number) {
+        return number == SKULL_CARD;
+    }
+
+    public numberCard(byte number) {
         this.number = number;
         hiddenTo = null;
     }
@@ -26,10 +31,12 @@ public class numberCard {
     }
 
     public static void removeFromPool(byte number) {
+        if (number == SKULL_CARD) return;
         numberCard nc = new numberCard(number);
         pool.remove(nc);
     }
     public static void addToPool(byte number) {
+        if (number == SKULL_CARD) return;
         numberCard nc = new numberCard(number);
         pool.add(nc);
     }

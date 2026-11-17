@@ -72,11 +72,20 @@ public class AssetManager {
         if (assetsRoot != null) {
             return assetsRoot;
         }
-        Path[] candidates = {
+        List<Path> candidates = new ArrayList<>(List.of(
                 Path.of("Snoblin_Deck_of_Playing_Cards"),
+                Path.of("app", "Snoblin_Deck_of_Playing_Cards"),
                 Path.of("twentyoneproject", "Snoblin_Deck_of_Playing_Cards"),
                 Path.of("..", "Snoblin_Deck_of_Playing_Cards")
-        };
+        ));
+        String jpackageAppPath = System.getProperty("jpackage.app-path");
+        if (jpackageAppPath != null && !jpackageAppPath.isBlank()) {
+            Path exeDir = Path.of(jpackageAppPath).toAbsolutePath().getParent();
+            if (exeDir != null) {
+                candidates.add(exeDir.resolve("app").resolve("Snoblin_Deck_of_Playing_Cards"));
+                candidates.add(exeDir.resolve("Snoblin_Deck_of_Playing_Cards"));
+            }
+        }
         for (Path candidate : candidates) {
             if (Files.isDirectory(candidate)) {
                 assetsRoot = candidate.toAbsolutePath().normalize();
@@ -261,35 +270,62 @@ public class AssetManager {
     }
 
     public static Image getPlayerHiddenNumberCard(int number, int scale) {
-        String key = "num_black_" + number + "_" + scale;
+        if (number == Game.numberCard.SKULL_CARD) {
+            return getSkullCard(scale);
+        }
+        String key = "num_player_mono_" + number + "_" + scale;
         return cache.computeIfAbsent(key, _ -> {
-            WritableImage canvas = new WritableImage(CARD_W, CARD_H);
+            String rel = switch (number) {
+                case 1 -> "Cards/Spades/ace_of_spades.png";
+                case 11 -> "Cards/Spades/jack_of_spades.png";
+                default -> "Cards/Spades/" + number + "_of_spades.png";
+            };
+            Image mono = toMonochrome(loadRaw(rel));
+            if (number == 11) {
+                return scaleNearestNeighbor(overlayElevenOnJack(mono, Color.rgb(16, 16, 16)), scale);
+            }
+            return scaleNearestNeighbor(mono, scale);
+        });
+    }
+
+    public static Image getSkullCard(int scale) {
+        String key = "skull_card_" + scale;
+        return cache.computeIfAbsent(key, _ -> {
+            Image base = toMonochrome(loadRaw("Cards/Decks/deck_1_black.png"));
+            WritableImage canvas = copyToWritable(base);
             PixelWriter pw = canvas.getPixelWriter();
-            for (int y = 0; y < CARD_H; y++) {
-                for (int x = 0; x < CARD_W; x++) {
-                    boolean isCorner = (x == 0 || x == CARD_W - 1) && (y == 0 || y == CARD_H - 1);
-                    if (isCorner) {
-                        pw.setColor(x, y, Color.TRANSPARENT);
-                    } else if (x == 0 || y == 0 || x == CARD_W - 1 || y == CARD_H - 1) {
-                        pw.setColor(x, y, Color.rgb(16, 16, 16));
-                    } else if (x == 2 || y == 2 || x == CARD_W - 3 || y == CARD_H - 3) {
-                        boolean inside = x >= 2 && x <= CARD_W - 3 && y >= 2 && y <= CARD_H - 3;
-                        pw.setColor(x, y, inside ? Color.WHITE : Color.rgb(16, 16, 16));
-                    } else {
-                        pw.setColor(x, y, Color.rgb(16, 16, 16));
+            for (int y = 14; y <= 40; y++) {
+                for (int x = 8; x <= 30; x++) {
+                    boolean border = x == 8 || x == 30 || y == 14 || y == 40;
+                    pw.setColor(x, y, border ? Color.WHITE : Color.rgb(16, 16, 16));
+                }
+            }
+            String[] skull = {
+                    "  #########  ",
+                    " ########### ",
+                    "#############",
+                    "#############",
+                    "##   ###   ##",
+                    "##   ###   ##",
+                    "##   ###   ##",
+                    "#############",
+                    " ##### ##### ",
+                    " ####   #### ",
+                    "  #########  ",
+                    "   #######   ",
+                    "   # # # #   ",
+                    "   # # # #   "
+            };
+            int startX = 13;
+            int startY = 20;
+            for (int r = 0; r < skull.length; r++) {
+                String row = skull[r];
+                for (int c = 0; c < row.length(); c++) {
+                    if (row.charAt(c) == '#') {
+                        pw.setColor(startX + c, startY + r, Color.WHITE);
                     }
                 }
             }
-            String txt = String.valueOf(number);
-            drawPixelText(pw, 5, 5, txt, Color.WHITE, 1);
-            int brX = CARD_W - 5 - (txt.length() * 4 - 1);
-            drawPixelText(pw, brX, CARD_H - 10, txt, Color.WHITE, 1);
-
-            int bigW = (txt.length() * 4 - 1) * 2;
-            int bigX = (CARD_W - bigW) / 2;
-            int bigY = (CARD_H - 10) / 2;
-            drawPixelText(pw, bigX, bigY, txt, Color.WHITE, 2);
-
             return scaleNearestNeighbor(canvas, scale);
         });
     }

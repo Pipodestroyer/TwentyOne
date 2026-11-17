@@ -37,6 +37,7 @@ public class GameStateSnapshot {
     }
 
     public static class PlayedTrumpView {
+        public final int id;
         public final String name;
         public final String description;
         public final String type;
@@ -44,8 +45,9 @@ public class GameStateSnapshot {
         public final boolean mine;
         public final boolean activeContinuous;
 
-        public PlayedTrumpView(String name, String description, String type,
+        public PlayedTrumpView(int id, String name, String description, String type,
                                String ownerName, boolean mine, boolean activeContinuous) {
+            this.id = id;
             this.name = name;
             this.description = description;
             this.type = type;
@@ -66,6 +68,8 @@ public class GameStateSnapshot {
     public int idJudge;
     public int targetScore;
     public int roundNumber;
+    public int remainingPoolSize;
+    public int turnTimeLimitSeconds = 45;
     public boolean myTurn;
     public boolean myStood;
     public boolean enemyStood;
@@ -85,6 +89,20 @@ public class GameStateSnapshot {
     public int summaryMyDelta;
     public int summaryEnemyDelta;
     public boolean summaryBless;
+
+    public boolean hasMySkullCard() {
+        for (CardView cv : myCards) {
+            if (numberCard.isSkullCard(cv.number)) return true;
+        }
+        return false;
+    }
+
+    public boolean hasEnemyVisibleSkullCard() {
+        for (CardView cv : enemyCards) {
+            if (numberCard.isSkullCard(cv.number)) return true;
+        }
+        return false;
+    }
 
     public int getMyTotalSum() {
         int s = 0;
@@ -124,6 +142,8 @@ public class GameStateSnapshot {
         s.idJudge = config.getIdJudge();
         s.targetScore = config.getNumberCardScore();
         s.roundNumber = config.getOriginalBet();
+        s.remainingPoolSize = config.getRemainingPoolSize();
+        s.turnTimeLimitSeconds = config.getTurnTimeLimitSeconds();
         s.myTurn = (config.getCurrentPlayer() == viewer) && !config.isRoundOver() && config.isInGame();
         s.myStood = viewer.isStood();
         s.enemyStood = enemy != null && enemy.isStood();
@@ -169,6 +189,7 @@ public class GameStateSnapshot {
                     && tc != null
                     && ownerPlayer.hasTrumpInUse(tc);
             s.playedTrumps.add(new PlayedTrumpView(
+                    rec.id,
                     rec.name,
                     rec.description,
                     rec.type,
@@ -254,11 +275,14 @@ public class GameStateSnapshot {
                     .append(b64(pt.type)).append(',')
                     .append(b64(pt.ownerName)).append(',')
                     .append(pt.mine).append(',')
-                    .append(pt.activeContinuous);
+                    .append(pt.activeContinuous).append(',')
+                    .append(pt.id);
         }
         sb.append(playedSb).append('|')
           .append(myRematchReady).append('|')
-          .append(enemyRematchReady);
+          .append(enemyRematchReady).append('|')
+          .append(remainingPoolSize).append('|')
+          .append(turnTimeLimitSeconds);
         return sb.toString();
     }
 
@@ -343,11 +367,14 @@ public class GameStateSnapshot {
         if (idx < parts.length) {
             String playedRaw = parts[idx++];
             if (!playedRaw.isEmpty()) {
+                int fallbackId = 1;
                 for (String item : playedRaw.split(";")) {
                     if (item.isEmpty()) continue;
                     String[] pp = item.split(",");
                     if (pp.length >= 6) {
+                        int ptId = pp.length >= 7 ? Integer.parseInt(pp[6]) : fallbackId;
                         s.playedTrumps.add(new PlayedTrumpView(
+                                ptId,
                                 unb64(pp[0]),
                                 unb64(pp[1]),
                                 unb64(pp[2]),
@@ -355,6 +382,7 @@ public class GameStateSnapshot {
                                 Boolean.parseBoolean(pp[4]),
                                 Boolean.parseBoolean(pp[5])
                         ));
+                        fallbackId++;
                     }
                 }
             }
@@ -363,7 +391,13 @@ public class GameStateSnapshot {
             s.myRematchReady = Boolean.parseBoolean(parts[idx++]);
         }
         if (idx < parts.length) {
-            s.enemyRematchReady = Boolean.parseBoolean(parts[idx]);
+            s.enemyRematchReady = Boolean.parseBoolean(parts[idx++]);
+        }
+        if (idx < parts.length && !parts[idx].isEmpty()) {
+            s.remainingPoolSize = Integer.parseInt(parts[idx++]);
+        }
+        if (idx < parts.length && !parts[idx].isEmpty()) {
+            s.turnTimeLimitSeconds = Integer.parseInt(parts[idx++]);
         }
         return s;
     }

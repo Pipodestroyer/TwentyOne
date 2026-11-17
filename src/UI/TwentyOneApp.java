@@ -5,8 +5,11 @@ import Net.P2PManager;
 import Net.RailwayRelayServer;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Pane;
@@ -17,11 +20,19 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Properties;
 
 public class TwentyOneApp extends Application {
     public static final double BASE_WIDTH = 1080.0;
     public static final double BASE_HEIGHT = 680.0;
+    public static final String VERSION_TEXT = "v0.1.0";
     public static final String DEFAULT_RAILWAY_URL = "https://twentyone-production.up.railway.app";
+    private static final Path SETTINGS_FILE = Path.of(System.getProperty("user.home"), ".twentyone_settings.properties");
 
     private Stage primaryStage;
     private StackPane rootContainer;
@@ -35,6 +46,45 @@ public class TwentyOneApp extends Application {
     private final LanDiscoveryService discoveryService = new LanDiscoveryService();
     private final P2PManager p2pManager = new P2PManager();
     private RailwayRelayServer localRelayServer;
+
+    public TwentyOneApp() {
+        loadPersistentSettings();
+    }
+
+    private void loadPersistentSettings() {
+        if (!Files.isRegularFile(SETTINGS_FILE)) {
+            return;
+        }
+        Properties props = new Properties();
+        try (Reader r = Files.newBufferedReader(SETTINGS_FILE, StandardCharsets.UTF_8)) {
+            props.load(r);
+            String savedName = props.getProperty("playerName");
+            if (savedName != null && !savedName.isBlank()) {
+                this.playerName = savedName.trim();
+            }
+            String savedVol = props.getProperty("volume");
+            if (savedVol != null && !savedVol.isBlank()) {
+                try {
+                    SoundManager.setVolume(Double.parseDouble(savedVol));
+                } catch (NumberFormatException _) {
+                    // Ignore malformed volume
+                }
+            }
+        } catch (IOException _) {
+            // Ignore unreadable settings file
+        }
+    }
+
+    private void savePersistentSettings() {
+        Properties props = new Properties();
+        props.setProperty("playerName", playerName != null ? playerName : "Jugador");
+        props.setProperty("volume", String.valueOf(SoundManager.getVolume()));
+        try (Writer w = Files.newBufferedWriter(SETTINGS_FILE, StandardCharsets.UTF_8)) {
+            props.store(w, "TwentyOne Player Settings");
+        } catch (IOException _) {
+            // Ignore persistence failure on read-only environments
+        }
+    }
 
     private static String resolveDefaultRailwayUrl() {
         String env = System.getenv("TWENTYONE_SERVER_URL");
@@ -165,23 +215,32 @@ public class TwentyOneApp extends Application {
         }
     }
 
+    private Label createVersionWatermark() {
+        Label wm = PixelUI.label(VERSION_TEXT, 11.5, true);
+        wm.setStyle("-fx-text-fill: rgba(16, 16, 16, 0.48);");
+        wm.setMouseTransparent(true);
+        StackPane.setAlignment(wm, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(wm, new Insets(0, 0, 8, 12));
+        return wm;
+    }
+
     public void showMainMenu() {
         shutdownNetworking();
         SoundManager.playBgm();
         MainMenuView menu = new MainMenuView(this);
-        rootContainer.getChildren().setAll(menu);
+        rootContainer.getChildren().setAll(menu, createVersionWatermark());
     }
 
     public void showLobby() {
         shutdownNetworking();
         LobbyView lobby = new LobbyView(this, discoveryService, p2pManager);
-        rootContainer.getChildren().setAll(lobby);
+        rootContainer.getChildren().setAll(lobby, createVersionWatermark());
     }
 
     public void showGameTable() {
         discoveryService.stop();
         GameTableView table = new GameTableView(this, p2pManager);
-        rootContainer.getChildren().setAll(table);
+        rootContainer.getChildren().setAll(table, createVersionWatermark());
     }
 
     public void shutdownNetworking() {
@@ -193,6 +252,7 @@ public class TwentyOneApp extends Application {
     public void setPlayerName(String playerName) {
         if (playerName != null && !playerName.isBlank()) {
             this.playerName = playerName.trim();
+            savePersistentSettings();
         }
     }
 
@@ -240,5 +300,6 @@ public class TwentyOneApp extends Application {
 
     public void setVolume(double volume) {
         SoundManager.setVolume(volume);
+        savePersistentSettings();
     }
 }

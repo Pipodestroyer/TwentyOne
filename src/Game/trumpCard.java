@@ -177,35 +177,41 @@ public class trumpCard {
         ));
         pool.add(new trumpCard(
                 "One-Up",
-                "Sube la apuesta por 1.",
+                "Sube la apuesta por 1 (en Individual, sube solo la del oponente).",
                 trumpType.CONTINUOUS,
-                (user, _) -> config.setLastActionMessage(user.getName() + " coloco One-Up (+1 apuesta).")
+                (user, op) -> config.setLastActionMessage(user.getName() + " coloco One-Up (+1 apuesta"
+                        + (config.getBetMode() == config.BET_DOUBLE && op != null ? " a " + op.getName() : "") + ").")
         ));
         pool.add(new trumpCard(
                 "Two-Up",
-                "Sube la apuesta por 2.",
+                "Sube la apuesta por 2 (en Individual, sube solo la del oponente).",
                 trumpType.CONTINUOUS,
-                (user, _) -> config.setLastActionMessage(user.getName() + " coloco Two-Up (+2 apuesta).")
+                (user, op) -> config.setLastActionMessage(user.getName() + " coloco Two-Up (+2 apuesta"
+                        + (config.getBetMode() == config.BET_DOUBLE && op != null ? " a " + op.getName() : "") + ").")
         ));
         pool.add(new trumpCard(
                 "Shield",
-                "Baja la apuesta por 1.",
+                "Baja la apuesta por 1 (en Individual, baja solo tu propia apuesta).",
                 trumpType.CONTINUOUS,
-                (user, _) -> config.setLastActionMessage(user.getName() + " coloco Shield (-1 apuesta).")
+                (user, _) -> config.setLastActionMessage(user.getName() + " coloco Shield (-1 apuesta"
+                        + (config.getBetMode() == config.BET_DOUBLE ? " propia" : "") + ").")
         ));
         pool.add(new trumpCard(
                 "Shield-Plus",
-                "Baja la apuesta por 2.",
+                "Baja la apuesta por 2 (en Individual, baja solo tu propia apuesta).",
                 trumpType.CONTINUOUS,
-                (user, _) -> config.setLastActionMessage(user.getName() + " coloco Shield-Plus (-2 apuesta).")
+                (user, _) -> config.setLastActionMessage(user.getName() + " coloco Shield-Plus (-2 apuesta"
+                        + (config.getBetMode() == config.BET_DOUBLE ? " propia" : "") + ").")
         ));
         pool.add(new trumpCard(
                 "Bloodshed",
-                "Sube la apuesta por 1 y robas una carta especial.",
+                "Sube la apuesta por 1 (al oponente en Individual) y robas una carta especial.",
                 trumpType.CONTINUOUS,
-                (user, _) -> {
+                (user, op) -> {
                     user.addTrump(trumpCard.getRandom());
-                    config.setLastActionMessage(user.getName() + " coloco Bloodshed (+1 apuesta y robo comodin).");
+                    config.setLastActionMessage(user.getName() + " coloco Bloodshed (+1 apuesta"
+                            + (config.getBetMode() == config.BET_DOUBLE && op != null ? " a " + op.getName() : "")
+                            + " y robo comodin).");
                 }
         ));
         pool.add(new trumpCard(
@@ -256,9 +262,12 @@ public class trumpCard {
                 "Devuelves tus numeros a la piscina y empiezas con dos cartas nuevas.",
                 trumpType.INSTANTANEOUS,
                 (user, op) -> {
+                    boolean hadSkull = user.hasSkullCard();
                     List<numberCard> currentCopy = new ArrayList<>(user.getNumberCards());
                     for (numberCard nc : currentCopy) {
-                        user.removeNumber(nc.getNumber());
+                        if (nc.getNumber() != numberCard.SKULL_CARD) {
+                            user.removeNumber(nc.getNumber());
+                        }
                     }
                     numberCard first = numberCard.getRandom();
                     if (first != null) {
@@ -267,6 +276,9 @@ public class trumpCard {
                     numberCard second = numberCard.getRandom();
                     if (second != null) {
                         user.addNumber(second.getNumber());
+                    }
+                    if (hadSkull && !user.hasSkullCard()) {
+                        user.getNumberCards().add(new numberCard(numberCard.SKULL_CARD));
                     }
                     config.setLastActionMessage(user.getName() + " uso Refresh y reinicio su mano.");
                 }
@@ -277,9 +289,20 @@ public class trumpCard {
                 trumpType.INSTANTANEOUS,
                 (user, op) -> {
                     if (op != null && op.getNumberCards().size() > 1) {
-                        byte removed = op.getNumberCards().getLast().getNumber();
-                        op.removeNumber(removed);
-                        config.setLastActionMessage(user.getName() + " removio la ultima carta de " + op.getName() + ".");
+                        numberCard targetCard = null;
+                        for (int idx = op.getNumberCards().size() - 1; idx >= 1; idx--) {
+                            if (op.getNumberCards().get(idx).getNumber() != numberCard.SKULL_CARD) {
+                                targetCard = op.getNumberCards().get(idx);
+                                break;
+                            }
+                        }
+                        if (targetCard != null) {
+                            byte removed = targetCard.getNumber();
+                            op.removeNumber(removed);
+                            config.setLastActionMessage(user.getName() + " removio la ultima carta de " + op.getName() + ".");
+                        } else {
+                            config.setLastActionMessage(user.getName() + " uso Remove, pero la Calavera no puede quitarse.");
+                        }
                     } else {
                         config.setLastActionMessage(user.getName() + " uso Remove, pero no puede quitar la carta oculta.");
                     }
@@ -291,9 +314,20 @@ public class trumpCard {
                 trumpType.INSTANTANEOUS,
                 (user, _) -> {
                     if (user.getNumberCards().size() > 1) {
-                        byte removed = user.getNumberCards().getLast().getNumber();
-                        user.removeNumber(removed);
-                        config.setLastActionMessage(user.getName() + " devolvio su ultima carta (" + removed + ") a la piscina.");
+                        numberCard targetCard = null;
+                        for (int idx = user.getNumberCards().size() - 1; idx >= 1; idx--) {
+                            if (user.getNumberCards().get(idx).getNumber() != numberCard.SKULL_CARD) {
+                                targetCard = user.getNumberCards().get(idx);
+                                break;
+                            }
+                        }
+                        if (targetCard != null) {
+                            byte removed = targetCard.getNumber();
+                            user.removeNumber(removed);
+                            config.setLastActionMessage(user.getName() + " devolvio su ultima carta (" + removed + ") a la piscina.");
+                        } else {
+                            config.setLastActionMessage(user.getName() + " uso Return, pero la Calavera no puede devolverse.");
+                        }
                     } else {
                         config.setLastActionMessage(user.getName() + " uso Return, pero no puede devolver su carta oculta.");
                     }
@@ -307,6 +341,10 @@ public class trumpCard {
                     if (op != null && !user.getNumberCards().isEmpty() && !op.getNumberCards().isEmpty()) {
                         numberCard userLast = user.getNumberCards().getLast();
                         numberCard opLast = op.getNumberCards().getLast();
+                        if (userLast.getNumber() == numberCard.SKULL_CARD || opLast.getNumber() == numberCard.SKULL_CARD) {
+                            config.setLastActionMessage("La Calavera (∞) no puede intercambiarse.");
+                            return;
+                        }
                         byte numYou = userLast.getNumber();
                         byte numOp = opLast.getNumber();
                         boolean userSlotHidden = userLast.getHiddenTo() != null;

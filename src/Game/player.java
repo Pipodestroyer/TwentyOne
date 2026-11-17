@@ -48,6 +48,15 @@ public class player {
     public ArrayList<trumpCard> getTrumpsInUse() { return trumpsInUse; }
     public void setTrumpsInUse(ArrayList<trumpCard> trumpsInUse) { this.trumpsInUse = trumpsInUse; }
 
+    public boolean hasSkullCard() {
+        for (numberCard nc : numberCards) {
+            if (nc.getNumber() == numberCard.SKULL_CARD) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public int getTotalNumberSum() {
         int sum = 0;
         for (numberCard nc : numberCards) {
@@ -57,7 +66,7 @@ public class player {
     }
 
     public boolean isBusted() {
-        return getTotalNumberSum() > config.getNumberCardScore();
+        return hasSkullCard() || getTotalNumberSum() > config.getNumberCardScore();
     }
 
     public int getVisibleNumberSum(player viewer) {
@@ -109,7 +118,7 @@ public class player {
     public boolean hasTrumpSaved(trumpCard trump) { return trumpCards.containsKey(trump); }
 
     public void useTrump(trumpCard trump) {
-        if (trump == null || !hasTrumpSaved(trump)) {
+        if (trump == null || !hasTrumpSaved(trump) || hasSkullCard()) {
             return;
         }
 
@@ -129,6 +138,10 @@ public class player {
         }
 
         config.recalculateContinuousEffects();
+        if (opponent != null && opponent.hasSkullCard()) {
+            config.resolveRound();
+            return;
+        }
         config.resetStoodState();
     }
 
@@ -152,12 +165,31 @@ public class player {
         } else {
             config.setLastActionMessage("No quedan numeros en la piscina.");
         }
+        player opponent = config.getOpponentOf(this);
+        if (opponent != null && opponent.hasSkullCard()) {
+            config.resolveRound();
+            return;
+        }
         config.resetStoodState();
         config.changePlayersTurn();
     }
 
     public void keepHand() {
+        if (!config.isInGame() || config.isRoundOver()) {
+            return;
+        }
         this.stood = true;
         config.onPlayerStood(this);
+    }
+
+    public void giveSkullCard() {
+        if (!config.isInGame() || config.isRoundOver()) {
+            return;
+        }
+        if (!hasSkullCard()) {
+            numberCards.add(new numberCard(numberCard.SKULL_CARD));
+        }
+        config.setLastActionMessage(this.name + " agoto el tiempo y recibio la Calavera (∞).");
+        keepHand();
     }
 }

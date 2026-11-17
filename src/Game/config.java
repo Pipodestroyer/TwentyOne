@@ -30,14 +30,20 @@ public class config {
     private static String lastActionMessage = "";
     private static RoundSummary lastRoundSummary;
     private static final List<PlayedTrumpRecord> playedTrumpsHistory = new ArrayList<>();
+    private static int nextPlayedTrumpId = 1;
+    private static boolean p1StoodInRound = false;
+    private static boolean p2StoodInRound = false;
+    private static int turnTimeLimitSeconds = 45;
 
     public static class PlayedTrumpRecord {
+        public final int id;
         public final String name;
         public final String description;
         public final String type;
         public final String ownerName;
 
-        public PlayedTrumpRecord(String name, String description, String type, String ownerName) {
+        public PlayedTrumpRecord(int id, String name, String description, String type, String ownerName) {
+            this.id = id;
             this.name = name;
             this.description = description;
             this.type = type;
@@ -92,10 +98,28 @@ public class config {
 
     public static String getJudgeName(byte idJudge) {
         return switch (idJudge) {
-            case JUDGE_BANK -> "El Banco (+6 fichas, perdedor paga al juez)";
-            case JUDGE_MAFIA -> "La Mafia (+2 fichas, comision 1 desde R2)";
-            default -> "El Anfitrion (+0 fichas, ganador lleva todo)";
+            case JUDGE_BANK -> "Deficit (+6 fichas, nadie se queda con la apuesta)";
+            case JUDGE_MAFIA -> "Merma (+2 fichas, ganador pierde 1 ficha tras R1)";
+            default -> "Normal (+0 fichas, ganador se queda con la apuesta)";
         };
+    }
+
+    public static String getJudgeShortName(byte idJudge) {
+        return switch (idJudge) {
+            case JUDGE_BANK -> "Deficit (+6)";
+            case JUDGE_MAFIA -> "Merma (+2)";
+            default -> "Normal (+0)";
+        };
+    }
+
+    public static String getBetModeName(byte betMode) {
+        return (betMode == BET_DOUBLE)
+                ? "Individual (solo subes la del rival y bajas la tuya)"
+                : "Unica (ambos comparten, suben y bajan la misma apuesta)";
+    }
+
+    public static String getBetModeShortName(byte betMode) {
+        return (betMode == BET_DOUBLE) ? "Individual" : "Unica";
     }
 
     public static void setConfiguration(byte idJudge, Set<trumpCard> trumpCardPool, player j1, player j2) {
@@ -114,9 +138,12 @@ public class config {
         originalBet = (byte) 0;
         currentBet = originalBet;
         numberCardScore = (byte) 21;
+        turnTimeLimitSeconds = 45;
         roundOver = false;
         lastRoundSummary = null;
         playedTrumpsHistory.clear();
+        nextPlayedTrumpId = 1;
+        resetStoodState();
         lastActionMessage = "Partida iniciada.";
         Game.trumpCard.setPool(trumpCardPool);
         refillNumberPool();
@@ -178,6 +205,7 @@ public class config {
     public static void recordPlayedTrump(player owner, trumpCard trump) {
         if (owner == null || trump == null) return;
         playedTrumpsHistory.add(new PlayedTrumpRecord(
+                nextPlayedTrumpId++,
                 trump.getName(),
                 trump.getDescription() != null ? trump.getDescription() : "",
                 trump.getType() != null ? trump.getType().name() : "INSTANTANEOUS",
@@ -189,6 +217,18 @@ public class config {
         return new ArrayList<>(playedTrumpsHistory);
     }
 
+    public static int getRemainingPoolSize() {
+        return numberCard.getPool() != null ? numberCard.getPool().toArray().length : 0;
+    }
+
+    public static int getTurnTimeLimitSeconds() {
+        return turnTimeLimitSeconds;
+    }
+
+    public static void setTurnTimeLimitSeconds(int seconds) {
+        turnTimeLimitSeconds = seconds <= 0 ? 0 : Math.max(30, seconds);
+    }
+
     // Methods
 
     public static void changePlayersTurn() {
@@ -198,12 +238,24 @@ public class config {
     }
 
     public static void resetStoodState() {
+        p1StoodInRound = false;
+        p2StoodInRound = false;
         if (player1 != null) player1.setStood(false);
         if (player2 != null) player2.setStood(false);
     }
 
     public static void onPlayerStood(player whoStood) {
-        if (player1 != null && player2 != null && player1.isStood() && player2.isStood()) {
+        if (roundOver || !inGame || whoStood == null) {
+            return;
+        }
+        if (whoStood == player1) {
+            p1StoodInRound = true;
+        } else if (whoStood == player2) {
+            p2StoodInRound = true;
+        }
+        player opponent = getOpponentOf(whoStood);
+        if ((player1 != null && player2 != null && p1StoodInRound && p2StoodInRound)
+                || (opponent != null && opponent.hasSkullCard())) {
             lastActionMessage = whoStood.getName() + " se planto. Fin de la ronda.";
             resolveRound();
         } else {
@@ -214,9 +266,10 @@ public class config {
 
     public static void recalculateContinuousEffects() {
         byte target = (byte) 21;
-        int sharedBet = BASE_BET;
-        int p1Bet = BASE_BET;
-        int p2Bet = BASE_BET;
+        int baseBet = Math.max(BASE_BET, (int) originalBet);
+        int sharedBet = baseBet;
+        int p1Bet = baseBet;
+        int p2Bet = baseBet;
 
         player[] both = {player1, player2};
         for (player owner : both) {
@@ -270,15 +323,17 @@ public class config {
     }
 
     public static void startRound() {
-        originalBet = (byte) (originalBet + 1);
-        currentBet = BASE_BET;
+        originalBet = (byte) Math.min(127, originalBet + 1);
+        int roundBaseBet = Math.max(BASE_BET, (int) originalBet);
+        currentBet = (byte) roundBaseBet;
         numberCardScore = (byte) 21;
         roundOver = false;
         lastRoundSummary = null;
         playedTrumpsHistory.clear();
+        nextPlayedTrumpId = 1;
         resetStoodState();
-        if (player1 != null) player1.setPersonalBet(BASE_BET);
-        if (player2 != null) player2.setPersonalBet(BASE_BET);
+        if (player1 != null) player1.setPersonalBet((byte) roundBaseBet);
+        if (player2 != null) player2.setPersonalBet((byte) roundBaseBet);
         refillNumberPool();
 
         getCurrentPlayer().addTrump(trumpCard.getRandom());
@@ -315,7 +370,20 @@ public class config {
         player loser = null;
         String reason;
 
-        if (sum1 == sum2) {
+        boolean p1Skull = player1.hasSkullCard();
+        boolean p2Skull = player2.hasSkullCard();
+
+        if (p1Skull && p2Skull) {
+            reason = "Ambos recibieron la Calavera (∞): empate";
+        } else if (p1Skull) {
+            winner = player2;
+            loser = player1;
+            reason = player1.getName() + " recibio la Calavera (∞)";
+        } else if (p2Skull) {
+            winner = player1;
+            loser = player2;
+            reason = player2.getName() + " recibio la Calavera (∞)";
+        } else if (sum1 == sum2) {
             reason = "Empate con " + sum1 + "/" + target;
         } else if (sum1 <= target && sum2 <= target) {
             if (target - sum1 < target - sum2) {
@@ -334,7 +402,7 @@ public class config {
                 winner = player2;
                 loser = player1;
             }
-            reason = "Ambos se pasaron de " + target + "; " + winner.getName() + " se paso menos";
+            reason = "Ambos se pasaron de " + target + "; " + winner.getName() + " estuvo mas cerca de " + target;
         } else {
             if (sum1 > target) {
                 winner = player2;
@@ -349,23 +417,39 @@ public class config {
         boolean blessTriggered = false;
         if (winner != null && loser != null) {
             int betToPay = (betMode == BET_DOUBLE) ? loser.getPersonalBet() : currentBet;
-            trumpCard blessCard = trumpCard.getTrump("Bless");
-            if (blessCard != null && loser.hasTrumpInUse(blessCard) && betToPay >= loser.getChips()) {
-                blessTriggered = true;
-                betToPay = 0;
+            if (loser.hasSkullCard()) {
+                betToPay = Math.max(Math.max(BASE_BET, (int) originalBet), betToPay);
+            } else {
+                trumpCard blessCard = trumpCard.getTrump("Bless");
+                if (blessCard != null && loser.hasTrumpInUse(blessCard) && betToPay >= loser.getChips()) {
+                    blessTriggered = true;
+                    betToPay = 0;
+                }
             }
 
             int transferred = Math.min(loser.getChips(), Math.max(0, betToPay));
             int loserNewChips = loser.getChips() - transferred;
             loser.setChips((byte) loserNewChips);
 
-            int winnerNewChips = Math.min(127, winner.getChips() + transferred);
+            int winnerGain;
+            if (idJudge == JUDGE_BANK) {
+                // Deficit: nadie se queda con las fichas apostadas
+                winnerGain = 0;
+            } else if (idJudge == JUDGE_MAFIA && originalBet > 1) {
+                // Merma: despues de la primera ronda, el ganador pierde una ficha de las fichas apostadas
+                winnerGain = Math.max(0, transferred - 1);
+            } else {
+                // Normal (o Merma en ronda 1): el ganador se queda con las fichas apostadas
+                winnerGain = transferred;
+            }
+            int winnerNewChips = Math.min(127, winner.getChips() + winnerGain);
             winner.setChips((byte) winnerNewChips);
             lastLoser = loser;
         }
 
         inGame = (player1.getChips() > 0) && (player2.getChips() > 0);
         roundOver = true;
+        resetStoodState();
 
         int p1Delta = player1.getChips() - p1Before;
         int p2Delta = player2.getChips() - p2Before;
@@ -411,6 +495,7 @@ public class config {
         player2.getTrumpsInUse().clear();
         player2.getNumberCards().clear();
         playedTrumpsHistory.clear();
+        nextPlayedTrumpId = 1;
         resetStoodState();
         refillNumberPool();
 
@@ -434,6 +519,7 @@ public class config {
         player1.getNumberCards().clear();
         player2.getNumberCards().clear();
         playedTrumpsHistory.clear();
+        nextPlayedTrumpId = 1;
         resetStoodState();
         lastLoser = null;
         originalBet = (byte) 0;

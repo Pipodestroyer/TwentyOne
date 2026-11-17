@@ -135,7 +135,7 @@ public class TwentyOneVerificationTest {
         // Test Bless prevents bankruptcy
         player p1 = new player("P1", (byte) 1);
         player p2 = new player("P2", (byte) 7);
-        config.setConfiguration(config.JUDGE_BANK, config.BET_DOUBLE, trumpCard.getPool(), p1, p2);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_DOUBLE, trumpCard.getPool(), p1, p2);
         config.startRound();
 
         p1.getNumberCards().clear();
@@ -154,12 +154,12 @@ public class TwentyOneVerificationTest {
         assertEquals(1, p1.getChips(), "Bless debe evitar perder fichas por bancarrota");
         assertTrue(config.isInGame());
 
-        // Advance to next round: loser (p1) starts, base bet stays 1 while round counter increments
+        // Advance to next round: loser (p1) starts, round counter & base bet increment +1
         config.advanceToNextRound();
         assertFalse(config.isRoundOver());
         assertEquals(p1, config.getCurrentPlayer());
         assertEquals(2, config.getOriginalBet());
-        assertEquals(1, config.getCurrentBet());
+        assertEquals(2, config.getCurrentBet());
 
         // Direct 1-to-1 chip transfer: p1 loses final chip -> p2 takes all chips and match ends
         p1.getNumberCards().clear();
@@ -357,13 +357,14 @@ public class TwentyOneVerificationTest {
             assertNotNull(AssetManager.getPlayerHiddenNumberCard(i, 2));
         }
         assertNotNull(AssetManager.getEnemyHiddenCard(2));
-        assertNotNull(AssetManager.getPlayerChipImage(2));
-        assertNotNull(AssetManager.getEnemyChipImage(2));
+        assertNotNull(AssetManager.getSkullCard(2));
+        assertNotNull(AssetManager.getPlayerChipImage(3));
+        assertNotNull(AssetManager.getEnemyChipImage(3));
 
         Font boldFont = PixelUI.font(16);
         Font regFont = PixelUI.fontRegular(14);
-        assertTrue(boldFont.getFamily().contains("Pixelify"), "Debe cargar Pixelify Sans Bold: " + boldFont.getFamily());
-        assertTrue(regFont.getFamily().contains("Pixelify"), "Debe cargar Pixelify Sans Regular: " + regFont.getFamily());
+        assertTrue(boldFont.getFamily().toLowerCase().contains("cairo"), "Debe cargar Cairopixel: " + boldFont.getFamily());
+        assertTrue(regFont.getFamily().toLowerCase().contains("cairo"), "Debe cargar Cairopixel: " + regFont.getFamily());
 
         for (trumpCard tc : trumpCard.getPool()) {
             Image img = AssetManager.getTrumpCardImage(tc.getName(), 2);
@@ -456,6 +457,11 @@ public class TwentyOneVerificationTest {
                 assertNotNull(testScene);
 
                 app.getRootContainer().getChildren().setAll(lobby);
+                assertEquals("v0.1.0", TwentyOneApp.VERSION_TEXT);
+                app.showMainMenu();
+                assertTrue(app.getRootContainer().getChildren().stream()
+                        .anyMatch(n -> n instanceof javafx.scene.control.Label l && "v0.1.0".equals(l.getText())),
+                        "Debe mostrar la marca de agua v0.1.0");
                 app.getRootContainer().getChildren().clear();
             } catch (Throwable t) {
                 errorRef.set(t);
@@ -646,5 +652,294 @@ public class TwentyOneVerificationTest {
             clientMgr.close();
             hostMgr.close();
         }
+    }
+
+    @Test
+    void testPerRoundBetIncreaseBothStandNextRoundSafetyAndSnapshotIds() {
+        player p1 = new player("P1", (byte) 20);
+        player p2 = new player("P2", (byte) 20);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), p1, p2);
+        config.startRound();
+
+        // Round 1 base bet = 1
+        assertEquals(1, config.getOriginalBet());
+        assertEquals(1, config.getCurrentBet());
+
+        // Play instantaneous and continuous trumps and verify monotonic IDs & remaining pool serialization
+        p1.addTrump(trumpCard.getTrump("One-Up"));
+        p1.useTrump(trumpCard.getTrump("One-Up"));
+        p2.addTrump(trumpCard.getTrump("Remove"));
+        p2.useTrump(trumpCard.getTrump("Remove"));
+        GameStateSnapshot snap = GameStateSnapshot.fromGameFor(p1);
+        GameStateSnapshot decoded = GameStateSnapshot.deserialize(snap.serialize());
+        assertEquals(snap.remainingPoolSize, decoded.remainingPoolSize);
+        assertEquals(2, decoded.playedTrumps.size());
+        assertEquals(1, decoded.playedTrumps.get(0).id);
+        assertEquals(2, decoded.playedTrumps.get(1).id);
+
+        // Both players stand in Round 1 -> round resolves cleanly
+        config.getCurrentPlayer().keepHand();
+        assertFalse(config.isRoundOver());
+        config.getCurrentPlayer().keepHand();
+        assertTrue(config.isRoundOver());
+
+        // Advance to Round 2: bet is now 2, and first stand MUST NOT end Round 2
+        config.advanceToNextRound();
+        assertFalse(config.isRoundOver());
+        assertEquals(2, config.getOriginalBet());
+        assertEquals(2, config.getCurrentBet());
+
+        player firstR2 = config.getCurrentPlayer();
+        firstR2.keepHand();
+        assertFalse(config.isRoundOver(), "Saltar una sola vez al inicio de la ronda 2 NO debe terminar la ronda");
+        assertNotEquals(firstR2, config.getCurrentPlayer(), "El turno debe pasar al otro jugador");
+
+        // Second player stands -> now Round 2 resolves
+        config.getCurrentPlayer().keepHand();
+        assertTrue(config.isRoundOver());
+
+        // Advance to Round 3 -> bet increases +1 again to 3
+        config.advanceToNextRound();
+        assertEquals(3, config.getOriginalBet());
+        assertEquals(3, config.getCurrentBet());
+    }
+
+    @Test
+    void testSkullCardTimeoutMechanics() {
+        player p1 = new player("P1", (byte) 1);
+        player p2 = new player("P2", (byte) 7);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), p1, p2);
+        config.startRound();
+
+        // Force p2 to bust heavily (>21), yet p1 receives Skull (∞) on timeout -> p1 MUST still lose
+        p2.getNumberCards().clear();
+        p2.addNumber((byte) 11);
+        p2.addNumber((byte) 10);
+        p2.addNumber((byte) 9); // 30 > 21
+
+        // Give p1 Bless (which normally prevents bankruptcy at 1 chip) -> Skull ignores Bless
+        p1.addTrump(trumpCard.getTrump("Bless"));
+        p1.useTrump(trumpCard.getTrump("Bless"));
+
+        p1.giveSkullCard();
+        assertTrue(p1.hasSkullCard());
+        assertTrue(p1.isBusted());
+
+        GameStateSnapshot snapP1 = GameStateSnapshot.fromGameFor(p1);
+        GameStateSnapshot snapP2 = GameStateSnapshot.fromGameFor(p2);
+        assertTrue(snapP1.hasMySkullCard());
+        assertTrue(snapP2.hasEnemyVisibleSkullCard());
+
+        p2.keepHand(); // round resolves now that both stood
+        assertTrue(config.isRoundOver());
+        assertEquals(0, p1.getChips(), "La Calavera debe causar derrota inevitable incluso con Bless");
+        assertEquals(8, p2.getChips());
+
+        // When a player gets Skull card, opponent drawing immediately resolves the round
+        player a1 = new player("P1", (byte) 7);
+        player a2 = new player("P2", (byte) 7);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), a1, a2);
+        config.startRound();
+        config.setCurrentPlayer(a1);
+        config.setNextPlayer(a2);
+        a1.giveSkullCard();
+        assertFalse(config.isRoundOver());
+        a2.drawNumber();
+        assertTrue(config.isRoundOver(), "Si p1 tiene Calavera y p2 come carta debe terminar la ronda");
+
+        // Also verify Refresh / Return / Remove cannot strip a Skull Card and opponent playing a trump ends round
+        player b1 = new player("P1", (byte) 7);
+        player b2 = new player("P2", (byte) 7);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), b1, b2);
+        config.startRound();
+        b1.getNumberCards().add(new numberCard(numberCard.SKULL_CARD));
+        trumpCard.getTrump("Refresh").getEffect().apply(b1, b2);
+        assertTrue(b1.hasSkullCard(), "Refresh no debe quitar la Calavera");
+        trumpCard.getTrump("Return").getEffect().apply(b1, b2);
+        assertTrue(b1.hasSkullCard(), "Return no debe quitar la Calavera");
+        b2.addTrump(trumpCard.getTrump("Remove"));
+        b2.useTrump(trumpCard.getTrump("Remove"));
+        assertTrue(b1.hasSkullCard(), "Remove no debe quitar la Calavera");
+        assertTrue(config.isRoundOver(), "Si p1 tiene Calavera y p2 juega trumpcard debe terminar la ronda");
+
+        // Both busted (>21): closer to target wins
+        player c1 = new player("P1", (byte) 7);
+        player c2 = new player("P2", (byte) 7);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), c1, c2);
+        config.startRound();
+        c1.getNumberCards().clear();
+        c2.getNumberCards().clear();
+        c1.addNumber((byte) 11, c2);
+        c1.addNumber((byte) 11); // 22 (>21, diff 1)
+        c2.addNumber((byte) 11, c1);
+        c2.addNumber((byte) 10);
+        c2.addNumber((byte) 5); // 26 (>21, diff 5)
+        c1.keepHand();
+        c2.keepHand();
+        assertTrue(config.isRoundOver());
+        assertEquals(8, c1.getChips(), "Si ambos se pasan, debe ganar el mas cercano a 21");
+        assertEquals(6, c2.getChips());
+    }
+
+    @Test
+    void testTurnTimeLimitRuleAndSerialization() {
+        GameRules noLimit = new GameRules("Host", config.JUDGE_HOST, config.BET_SINGLE, (byte) 7, 0);
+        assertEquals(0, noLimit.turnTimeLimitSeconds, "0 debe representar No limite");
+
+        GameRules clampedMin = new GameRules("Host", config.JUDGE_HOST, config.BET_SINGLE, (byte) 7, 15);
+        assertEquals(30, clampedMin.turnTimeLimitSeconds, "Cualquier limite positivo < 30 debe fijarse a minimo 30s");
+
+        GameRules custom35 = new GameRules("Host", config.JUDGE_HOST, config.BET_SINGLE, (byte) 7, 35);
+        assertEquals(35, custom35.turnTimeLimitSeconds);
+
+        player p1 = new player("P1", (byte) 7);
+        player p2 = new player("P2", (byte) 7);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), p1, p2);
+        config.setTurnTimeLimitSeconds(0);
+        config.startRound();
+        assertEquals(0, config.getTurnTimeLimitSeconds(), "startRound no debe sobrescribir el limite de tiempo");
+
+        GameStateSnapshot snapNoLimit = GameStateSnapshot.fromGameFor(p1);
+        GameStateSnapshot decodedNoLimit = GameStateSnapshot.deserialize(snapNoLimit.serialize());
+        assertEquals(0, decodedNoLimit.turnTimeLimitSeconds);
+
+        config.setTurnTimeLimitSeconds(35);
+        config.advanceToNextRound();
+        assertEquals(35, config.getTurnTimeLimitSeconds(), "advanceToNextRound debe conservar 35s");
+        GameStateSnapshot decoded35 = GameStateSnapshot.deserialize(GameStateSnapshot.fromGameFor(p1).serialize());
+        assertEquals(35, decoded35.turnTimeLimitSeconds);
+    }
+
+    @Test
+    void testBetTypesNormalDeficitMerma() throws Exception {
+        assertEquals(0, config.getJudgeBonusChips(config.JUDGE_HOST));
+        assertEquals(6, config.getJudgeBonusChips(config.JUDGE_BANK));
+        assertEquals(2, config.getJudgeBonusChips(config.JUDGE_MAFIA));
+
+        // 1) Deficit (JUDGE_BANK): loser pays bet, nobody keeps the betted chips (winner gains 0)
+        int deficitStart = 7 + config.getJudgeBonusChips(config.JUDGE_BANK); // 13
+        player d1 = new player("D1", (byte) deficitStart);
+        player d2 = new player("D2", (byte) deficitStart);
+        config.setConfiguration(config.JUDGE_BANK, config.BET_SINGLE, trumpCard.getPool(), d1, d2);
+        config.startRound();
+        d1.getNumberCards().clear();
+        d2.getNumberCards().clear();
+        d1.addNumber((byte) 2, d2); // 2
+        d2.addNumber((byte) 10, d1);
+        d2.addNumber((byte) 11); // 21
+        d1.keepHand();
+        d2.keepHand();
+        assertTrue(config.isRoundOver());
+        assertEquals(12, d1.getChips(), "Deficit: perdedor pierde la apuesta");
+        assertEquals(13, d2.getChips(), "Deficit: nadie se queda con las fichas apostadas");
+
+        // 2) Merma (JUDGE_MAFIA): R1 ganador recibe apuesta completa; desde R2 pierde 1 ficha de lo ganado
+        int mermaStart = 7 + config.getJudgeBonusChips(config.JUDGE_MAFIA); // 9
+        player m1 = new player("M1", (byte) mermaStart);
+        player m2 = new player("M2", (byte) mermaStart);
+        config.setConfiguration(config.JUDGE_MAFIA, config.BET_SINGLE, trumpCard.getPool(), m1, m2);
+        config.startRound(); // Ronda 1, apuesta 1
+        m1.getNumberCards().clear();
+        m2.getNumberCards().clear();
+        m1.addNumber((byte) 2, m2);
+        m2.addNumber((byte) 10, m1);
+        m2.addNumber((byte) 11);
+        m1.keepHand();
+        m2.keepHand();
+        assertEquals(8, m1.getChips(), "Merma R1: perdedor pierde 1");
+        assertEquals(10, m2.getChips(), "Merma R1: en primera ronda ganador recibe apuesta completa (+1)");
+
+        config.advanceToNextRound(); // Ronda 2, apuesta 2
+        m1.getNumberCards().clear();
+        m2.getNumberCards().clear();
+        m1.addNumber((byte) 3, m2);
+        m2.addNumber((byte) 10, m1);
+        m2.addNumber((byte) 10);
+        m1.keepHand();
+        m2.keepHand();
+        assertEquals(6, m1.getChips(), "Merma R2: perdedor pierde apuesta de 2");
+        assertEquals(11, m2.getChips(), "Merma R2+: ganador pierde 1 ficha de las 2 apostadas (+1 neto)");
+
+        // 3) P2PManager adds Deficit +6 bonus chips at start of match
+        P2PManager host = new P2PManager();
+        P2PManager client = new P2PManager();
+        try {
+            CountDownLatch ready = new CountDownLatch(2);
+            AtomicReference<GameStateSnapshot> hSnap = new AtomicReference<>();
+            AtomicReference<GameStateSnapshot> cSnap = new AtomicReference<>();
+            int port = host.startHost(new GameRules("H", config.JUDGE_BANK, config.BET_SINGLE, (byte) 7, 45), 17888,
+                    new P2PManager.Listener() {
+                        @Override public void onConnected(String peerInfo) {}
+                        @Override public void onStateUpdated(GameStateSnapshot s) {
+                            hSnap.set(s);
+                            ready.countDown();
+                        }
+                        @Override public void onDisconnected(String reason) {}
+                        @Override public void onError(String message) { fail(message); }
+                    });
+            client.connectToHost("127.0.0.1", port, "C", new P2PManager.Listener() {
+                @Override public void onConnected(String peerInfo) {}
+                @Override public void onStateUpdated(GameStateSnapshot s) {
+                    cSnap.set(s);
+                    ready.countDown();
+                }
+                @Override public void onDisconnected(String reason) {}
+                @Override public void onError(String message) { fail(message); }
+            });
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            assertEquals(13, hSnap.get().myChips, "Host debe iniciar con 7 + 6 = 13 fichas en modo Deficit");
+            assertEquals(13, cSnap.get().myChips, "Cliente debe iniciar con 7 + 6 = 13 fichas en modo Deficit");
+        } finally {
+            client.close();
+            host.close();
+        }
+    }
+
+    @Test
+    void testBetQuantityUnicaVsIndividual() {
+        // 1) Unica (BET_SINGLE): ambos jugadores alteran la misma apuesta compartida
+        player u1 = new player("U1", (byte) 7);
+        player u2 = new player("U2", (byte) 7);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_SINGLE, trumpCard.getPool(), u1, u2);
+        config.startRound(); // base 1
+        assertEquals(1, config.getCurrentBet());
+
+        u1.addTrump(trumpCard.getTrump("Two-Up"));
+        u1.useTrump(trumpCard.getTrump("Two-Up")); // +2 -> 3
+        assertEquals(3, config.getCurrentBet());
+
+        u2.addTrump(trumpCard.getTrump("Shield"));
+        u2.useTrump(trumpCard.getTrump("Shield")); // -1 -> 2
+        assertEquals(2, config.getCurrentBet(), "En Unica, ambos suben y bajan la misma apuesta");
+
+        // 2) Individual (BET_DOUBLE): aumentas solo la del oponente y bajas solo la tuya
+        player i1 = new player("I1", (byte) 7);
+        player i2 = new player("I2", (byte) 7);
+        config.setConfiguration(config.JUDGE_HOST, config.BET_DOUBLE, trumpCard.getPool(), i1, i2);
+        config.startRound(); // ambos inician en 1
+        assertEquals(1, i1.getPersonalBet());
+        assertEquals(1, i2.getPersonalBet());
+
+        i1.addTrump(trumpCard.getTrump("Two-Up"));
+        i1.useTrump(trumpCard.getTrump("Two-Up")); // sube +2 a i2 solamente
+        assertEquals(1, i1.getPersonalBet(), "Two-Up en Individual no debe subir tu propia apuesta");
+        assertEquals(3, i2.getPersonalBet(), "Two-Up en Individual debe subir la apuesta del oponente");
+
+        i2.addTrump(trumpCard.getTrump("Shield"));
+        i2.useTrump(trumpCard.getTrump("Shield")); // baja -1 su propia apuesta (3 -> 2)
+        assertEquals(1, i1.getPersonalBet(), "Shield en Individual no debe bajar la del oponente");
+        assertEquals(2, i2.getPersonalBet(), "Shield en Individual debe bajar solo tu propia apuesta");
+
+        // Verifica que al perder i2 paga su apuesta personal (2)
+        i1.getNumberCards().clear();
+        i2.getNumberCards().clear();
+        i1.addNumber((byte) 10, i2);
+        i1.addNumber((byte) 10); // 20
+        i2.addNumber((byte) 5, i1); // 5
+        i1.keepHand();
+        i2.keepHand();
+        assertTrue(config.isRoundOver());
+        assertEquals(9, i1.getChips(), "Ganador recibe la apuesta personal del perdedor (2)");
+        assertEquals(5, i2.getChips(), "Perdedor paga su apuesta personal (2)");
     }
 }

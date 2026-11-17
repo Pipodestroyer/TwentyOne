@@ -120,12 +120,28 @@ public class LobbyView extends StackPane {
         PixelUI.PixelCheckBox lanModeCheck = pixelCheckBox("Modo LAN (Red Local P2P)", false);
         PixelUI.PixelCheckBox passwordRoomCheck = pixelCheckBox("Requiere contrasena (codigo 4 digitos)", false);
 
-        // Bet Modes
-        Label betTitle = PixelUI.label("APUESTAS (marca ambos para aleatorio):", 12.5, true);
+        // Payout / Bet Type (Normal, Deficit, Merma)
+        Label judgeTitle = PixelUI.label("TIPO DE APUESTA (marca varios para aleatorio):", 12.5, true);
+        HBox judgeRow = new HBox(12);
+        PixelUI.PixelCheckBox jNormal = pixelCheckBox("Normal (+0)", true);
+        PixelUI.PixelCheckBox jDeficit = pixelCheckBox("Deficit (+6)", false);
+        PixelUI.PixelCheckBox jMerma = pixelCheckBox("Merma (+2)", false);
+        judgeRow.getChildren().addAll(jNormal, jDeficit, jMerma);
+        Label judgeHint = PixelUI.label(
+                "Normal: ganador lleva todo | Deficit: nadie cobra | Merma: ganador -1 ficha tras R1",
+                10.0, false);
+        judgeHint.setWrapText(true);
+
+        // Bet Modes (Unica vs Individual)
+        Label betTitle = PixelUI.label("CANTIDAD DE APUESTAS (marca ambas para aleatorio):", 12.5, true);
         HBox betRow = new HBox(14);
-        PixelUI.PixelCheckBox bSingle = pixelCheckBox("1 Apuesta (compartida)", true);
-        PixelUI.PixelCheckBox bDouble = pixelCheckBox("2 Apuestas (individual)", false);
+        PixelUI.PixelCheckBox bSingle = pixelCheckBox("Unica (compartida)", true);
+        PixelUI.PixelCheckBox bDouble = pixelCheckBox("Individual (propia)", false);
         betRow.getChildren().addAll(bSingle, bDouble);
+        Label betHint = PixelUI.label(
+                "Unica: ambos suben/bajan la misma | Individual: subes la del rival y bajas la tuya",
+                10.0, false);
+        betHint.setWrapText(true);
 
         // Chips
         Label chipsTitle = PixelUI.label("FICHAS INICIALES (marca varias para aleatorio):", 12.5, true);
@@ -135,6 +151,44 @@ public class LobbyView extends StackPane {
         PixelUI.PixelCheckBox c9 = pixelCheckBox("9", false);
         PixelUI.PixelCheckBox c11 = pixelCheckBox("11", false);
         chipsRow.getChildren().addAll(c5, c7, c9, c11);
+
+        // Turn time limit (0 = No limite, or >= 30 in 5s steps)
+        Label timeTitle = PixelUI.label("TIEMPO DE JUEGO:", 12.5, true);
+        HBox timeRow = new HBox(10);
+        timeRow.setAlignment(Pos.CENTER_LEFT);
+        final int[] turnTimeSeconds = {45};
+        Button minusTimeBtn = PixelUI.pixelButton("-5s", 12, 48, 30);
+        Label timeValueLabel = PixelUI.label("45s", 13, true);
+        timeValueLabel.setMinWidth(96);
+        timeValueLabel.setAlignment(Pos.CENTER);
+        Button plusTimeBtn = PixelUI.pixelButton("+5s", 12, 48, 30);
+
+        Runnable syncTimeUi = () -> {
+            int t = turnTimeSeconds[0];
+            timeValueLabel.setText(t <= 0 ? "No limite" : t + "s");
+            minusTimeBtn.setDisable(t <= 0);
+            minusTimeBtn.setOpacity(t <= 0 ? 0.45 : 1.0);
+            plusTimeBtn.setDisable(t >= 120);
+            plusTimeBtn.setOpacity(t >= 120 ? 0.45 : 1.0);
+        };
+        minusTimeBtn.setOnAction(_ -> {
+            if (turnTimeSeconds[0] <= 30) {
+                turnTimeSeconds[0] = 0;
+            } else {
+                turnTimeSeconds[0] -= 5;
+            }
+            syncTimeUi.run();
+        });
+        plusTimeBtn.setOnAction(_ -> {
+            if (turnTimeSeconds[0] <= 0) {
+                turnTimeSeconds[0] = 30;
+            } else {
+                turnTimeSeconds[0] = Math.min(120, turnTimeSeconds[0] + 5);
+            }
+            syncTimeUi.run();
+        });
+        syncTimeUi.run();
+        timeRow.getChildren().addAll(minusTimeBtn, timeValueLabel, plusTimeBtn);
 
         // Create button
         HBox actionRow = new HBox(10);
@@ -151,6 +205,11 @@ public class LobbyView extends StackPane {
         syncModeUi.run();
 
         createBtn.setOnAction(_ -> {
+            List<Byte> judgeTypes = new ArrayList<>();
+            if (jNormal.isSelected()) judgeTypes.add(config.JUDGE_HOST);
+            if (jDeficit.isSelected()) judgeTypes.add(config.JUDGE_BANK);
+            if (jMerma.isSelected()) judgeTypes.add(config.JUDGE_MAFIA);
+
             List<Byte> betModes = new ArrayList<>();
             if (bSingle.isSelected()) betModes.add(config.BET_SINGLE);
             if (bDouble.isSelected()) betModes.add(config.BET_DOUBLE);
@@ -161,14 +220,15 @@ public class LobbyView extends StackPane {
             if (c9.isSelected()) chipsOptions.add((byte) 9);
             if (c11.isSelected()) chipsOptions.add((byte) 11);
 
-            if (betModes.isEmpty() || chipsOptions.isEmpty()) {
-                feedbackLabel.setText("Selecciona al menos una opcion de Apuesta y Fichas.");
+            if (judgeTypes.isEmpty() || betModes.isEmpty() || chipsOptions.isEmpty()) {
+                feedbackLabel.setText("Selecciona al menos una opcion de Tipo, Cantidad de apuestas y Fichas.");
                 return;
             }
 
+            byte chosenJudge = judgeTypes.get(random.nextInt(judgeTypes.size()));
             byte chosenBet = betModes.get(random.nextInt(betModes.size()));
             byte chosenChips = chipsOptions.get(random.nextInt(chipsOptions.size()));
-            GameRules rules = new GameRules(app.getPlayerName(), config.JUDGE_HOST, chosenBet, chosenChips);
+            GameRules rules = new GameRules(app.getPlayerName(), chosenJudge, chosenBet, chosenChips, turnTimeSeconds[0]);
 
             if (lanModeCheck.isSelected()) {
                 startHostingLanRoom(rules, app.getDefaultPort());
@@ -184,8 +244,10 @@ public class LobbyView extends StackPane {
         actionRow.getChildren().add(createBtn);
         panel.getChildren().addAll(
                 header, lanModeCheck, passwordRoomCheck,
-                betTitle, betRow,
+                judgeTitle, judgeRow, judgeHint,
+                betTitle, betRow, betHint,
                 chipsTitle, chipsRow,
+                timeTitle, timeRow,
                 vSpacer,
                 actionRow
         );
@@ -362,8 +424,14 @@ public class LobbyView extends StackPane {
     }
 
     private String formatRules(byte idJudge, byte betMode, byte initialChips) {
-        String betStr = betMode == config.BET_DOUBLE ? "2 Apuestas" : "1 Apuesta";
-        return betStr + " | Fichas iniciales: " + initialChips;
+        String typeStr = config.getJudgeShortName(idJudge);
+        String betStr = config.getBetModeShortName(betMode);
+        return typeStr + " | Apuesta: " + betStr + " | Base: " + initialChips;
+    }
+
+    private String formatRules(GameRules rules) {
+        String timeStr = rules.turnTimeLimitSeconds <= 0 ? "Sin limite" : (rules.turnTimeLimitSeconds + "s");
+        return formatRules(rules.idJudge, rules.betMode, rules.initialChips) + " | Tiempo: " + timeStr;
     }
 
     private void connectToRailwayCode(String code) {
@@ -415,7 +483,7 @@ public class LobbyView extends StackPane {
                 "ESPERANDO A JUGADORES...",
                 isPublic ? null : "CONTRASENA: ....",
                 (isPublic ? "Sala publica sin contrasena" : "Comparte esta contrasena con tu oponente") + "\n"
-                        + formatRules(rules.idJudge, rules.betMode, rules.initialChips)
+                        + formatRules(rules)
         );
         p2pManager.startRailwayHost(
                 app.getRailwayServerUrl(),
@@ -442,7 +510,7 @@ public class LobbyView extends StackPane {
                     "SALA LAN CREADA - ESPERANDO OPONENTE",
                     null,
                     "IP Local: " + getLocalIpSummary() + "\n"
-                            + formatRules(rules.idJudge, rules.betMode, rules.initialChips)
+                            + formatRules(rules)
             );
         } catch (IOException e) {
             feedbackLabel.setText("No se pudo abrir sala LAN: " + e.getMessage());

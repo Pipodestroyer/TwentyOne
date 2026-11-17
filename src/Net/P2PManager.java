@@ -152,7 +152,7 @@ public class P2PManager {
             clientName = clientName + " (2)";
         }
 
-        byte startingChips = rules.initialChips;
+        byte startingChips = (byte) Math.min(127, rules.initialChips + config.getJudgeBonusChips(rules.idJudge));
 
         synchronized (gameLock) {
             hostRematchReady = false;
@@ -160,6 +160,7 @@ public class P2PManager {
             hostPlayer = new player(rules.hostName, startingChips);
             clientPlayer = new player(clientName, startingChips);
             config.setConfiguration(rules.idJudge, rules.betMode, trumpCard.getPool(), hostPlayer, clientPlayer);
+            config.setTurnTimeLimitSeconds(rules.turnTimeLimitSeconds);
             config.startRound();
         }
 
@@ -589,6 +590,14 @@ public class P2PManager {
         }
     }
 
+    public void performLocalTimeout() {
+        if (isHost) {
+            executeActorCommand(hostPlayer, "TIMEOUT");
+        } else {
+            sendToHost("CMD|TIMEOUT");
+        }
+    }
+
     public void performLocalUseTrump(String trumpName) {
         if (isHost) {
             executeActorCommand(hostPlayer, "USE_TRUMP|" + b64(trumpName));
@@ -695,6 +704,9 @@ public class P2PManager {
                     }
                 } else if ("STAND".equals(cmd)) {
                     actor.keepHand();
+                    changed = true;
+                } else if ("TIMEOUT".equals(cmd)) {
+                    actor.giveSkullCard();
                     changed = true;
                 } else if (cmd.startsWith("USE_TRUMP|")) {
                     String trumpName = unb64(cmd.substring("USE_TRUMP|".length()));

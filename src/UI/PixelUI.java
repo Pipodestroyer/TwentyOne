@@ -12,6 +12,8 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
@@ -19,7 +21,9 @@ import javafx.scene.text.FontWeight;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.DoubleConsumer;
 
@@ -35,11 +39,20 @@ public class PixelUI {
         if (fontsRoot != null) {
             return fontsRoot;
         }
-        Path[] candidates = {
+        List<Path> candidates = new ArrayList<>(List.of(
                 Path.of("fonts"),
+                Path.of("app", "fonts"),
                 Path.of("twentyoneproject", "fonts"),
                 Path.of("..", "fonts")
-        };
+        ));
+        String jpackageAppPath = System.getProperty("jpackage.app-path");
+        if (jpackageAppPath != null && !jpackageAppPath.isBlank()) {
+            Path exeDir = Path.of(jpackageAppPath).toAbsolutePath().getParent();
+            if (exeDir != null) {
+                candidates.add(exeDir.resolve("app").resolve("fonts"));
+                candidates.add(exeDir.resolve("fonts"));
+            }
+        }
         for (Path candidate : candidates) {
             if (Files.isDirectory(candidate)) {
                 fontsRoot = candidate.toAbsolutePath().normalize();
@@ -54,20 +67,20 @@ public class PixelUI {
         String key = (bold ? "B_" : "R_") + size;
         return fontCache.computeIfAbsent(key, _ -> {
             Path root = getFontsRoot();
-            Path primary = bold
+            Path cairoTtf = root.resolve("Cairopixel.ttf");
+            Path cairoOtf = root.resolve("Cairopixel.otf");
+            Path legacyPrimary = bold
                     ? root.resolve("static").resolve("PixelifySans-Bold.ttf")
                     : root.resolve("static").resolve("PixelifySans-Regular.ttf");
-            Path secondary = root.resolve("PixelifySans-VariableFont_wght.ttf");
+            Path legacySecondary = root.resolve("PixelifySans-VariableFont_wght.ttf");
 
-            Font loaded = null;
-            if (Files.exists(primary)) {
-                loaded = Font.loadFont(primary.toUri().toString(), size);
-            }
-            if (loaded == null && Files.exists(secondary)) {
-                loaded = Font.loadFont(secondary.toUri().toString(), size);
-            }
-            if (loaded != null) {
-                return loaded;
+            for (Path candidate : new Path[]{cairoTtf, cairoOtf, legacyPrimary, legacySecondary}) {
+                if (Files.exists(candidate)) {
+                    Font loaded = Font.loadFont(candidate.toUri().toString(), size);
+                    if (loaded != null) {
+                        return loaded;
+                    }
+                }
             }
             return Font.font(FALLBACK_FONT, bold ? FontWeight.BOLD : FontWeight.NORMAL, size);
         });
@@ -226,8 +239,8 @@ public class PixelUI {
         }
     }
 
-    public static class PixelSlider extends HBox {
-        private static final double TRACK_WIDTH = 180.0;
+    public static class PixelSlider extends VBox {
+        private static final double TRACK_WIDTH = 190.0;
         private static final double TRACK_HEIGHT = 16.0;
         private static final double THUMB_WIDTH = 10.0;
         private static final double THUMB_HEIGHT = 20.0;
@@ -242,8 +255,9 @@ public class PixelUI {
             this.value = Math.max(0.0, Math.min(1.0, initialValue));
             this.onValueChanged = onValueChanged;
 
-            setAlignment(Pos.CENTER_LEFT);
-            setSpacing(12);
+            setAlignment(Pos.CENTER);
+            setMaxWidth(Region.USE_PREF_SIZE);
+            setSpacing(6);
 
             Pane trackPane = new Pane();
             trackPane.setPrefSize(TRACK_WIDTH, THUMB_HEIGHT);
@@ -269,7 +283,7 @@ public class PixelUI {
             trackPane.getChildren().addAll(bgRect, fillRect, thumbRect);
 
             percentLabel = label("", 12.5, true);
-            percentLabel.setMinWidth(46);
+            percentLabel.setAlignment(Pos.CENTER);
 
             getChildren().addAll(trackPane, percentLabel);
             updateVisuals();
