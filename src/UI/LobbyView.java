@@ -79,7 +79,6 @@ public class LobbyView extends StackPane {
         topBar.getChildren().addAll(backBtn, titleLbl, spacer, playerLbl);
         layout.setTop(topBar);
 
-        // Left: Hostear partida (Railway por defecto + toggle LAN) | Right: Buscador de servers (Publicas + LAN)
         HBox columns = new HBox(24);
         columns.setAlignment(Pos.TOP_CENTER);
 
@@ -93,7 +92,6 @@ public class LobbyView extends StackPane {
         columns.getChildren().addAll(leftPanel, rightPanel);
         layout.setCenter(columns);
 
-        // Bottom feedback
         feedbackLabel = PixelUI.label("", 13, false);
         feedbackLabel.setPadding(new Insets(8, 0, 0, 0));
         layout.setBottom(feedbackLabel);

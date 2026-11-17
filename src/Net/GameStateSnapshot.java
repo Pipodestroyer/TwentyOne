@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class GameStateSnapshot {
     public static class CardView {
-        public final int number; // -1 if hidden from viewer
+        public final int number; 
         public final boolean hiddenCard;
 
         public CardView(int number, boolean hiddenCard) {

@@ -74,14 +74,14 @@ public class GameTableView extends StackPane {
 
     private static final String[] DRAW_WORDS = {
             "¿otra carta?", "¿te atreves?", "21 o nada", "el dealer mira...",
-            "riesgo puro", "una mas...", "¿sera un as?", "al limite",
+            "riesgo...", "una mas...", "hmm...", "al limite",
             "sin miedo", "tentando a la suerte", "pide otra...", "¿te pasaras?"
     };
 
     private static final String[] STAND_WORDS = {
             "me planto...", "suficiente", "mano firme", "sin arriesgar",
-            "calma...", "que hable la mesa", "prudencia", "hasta aqui",
-            "¿bastara?", "cierro turno", "sangre fria", "a esperar..."
+            "calma...", "que hable la mesa", "¿miedo?", "hasta aqui",
+            "¿bastara?", "cierro turno", "respira...", "a esperar..."
     };
 
     private static class CursorWordTracker {

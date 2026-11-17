@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1620 1220" width="1620" height="1220">
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .pkg-tab { fill: #ffffff; stroke: #000000; stroke-width: 1.2; }
+      .pkg-body { fill: none; stroke: #000000; stroke-width: 1.2; }
+      .pkg-title { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; fill: #000000; }
+      .cls-box { fill: #ffffff; stroke: #000000; stroke-width: 1.5; }
+      .cls-sep { stroke: #000000; stroke-width: 1.2; }
+      .cls-stereo { font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-style: italic; fill: #000000; text-anchor: middle; }
+      .cls-name { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; fill: #000000; text-anchor: middle; }
+      .cls-member { font-family: Consolas, "Courier New", monospace; font-size: 11px; fill: #000000; }
+      .rel-solid { fill: none; stroke: #000000; stroke-width: 1.2; }
+      .rel-dash { fill: none; stroke: #000000; stroke-width: 1.2; stroke-dasharray: 5,4; }
+      .rel-label { font-family: Arial, Helvetica, sans-serif; font-size: 10px; fill: #000000; }
+    </style>
+
+    <!-- Open arrow for association / dependency -->
+    <marker id="arrow-open" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#000000" stroke-width="1.3" />
+    </marker>
+
+    <!-- Hollow triangle for inheritance / realization -->
+    <marker id="arrow-inherit" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    </marker>
+
+    <!-- Hollow diamond for aggregation -->
+    <marker id="diamond-agg" viewBox="0 0 14 10" refX="1" refY="5" markerWidth="12" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 1 5 L 7 1 L 13 5 L 7 9 z" fill="#ffffff" stroke="#000000" stroke-width="1.2" />
+    </marker>
+
+    <!-- Filled diamond for composition -->
+    <marker id="diamond-comp" viewBox="0 0 14 10" refX="1" refY="5" markerWidth="12" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 1 5 L 7 1 L 13 5 L 7 9 z" fill="#000000" stroke="#000000" stroke-width="1.2" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" x="0" y="0" width="1620" height="1220" />
+
+  <!-- Title -->
+  <text x="810" y="28" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#000000">
+    TwentyOne - Diagrama de Clases UML
+  </text>
+
+  <!-- ========================================================= -->
+  <!-- TOP: Main (default package)                               -->
+  <!-- ========================================================= -->
+  <g id="cls-Main" transform="translate(690, 48)">
+    <rect class="cls-box" x="0" y="0" width="240" height="82" />
+    <text class="cls-name" x="120" y="20">Main</text>
+    <line class="cls-sep" x1="0" y1="28" x2="240" y2="28" />
+    <line class="cls-sep" x1="0" y1="36" x2="240" y2="36" />
+    <text class="cls-member" x="8" y="54">+ main(args: String[]): void</text>
+    <text class="cls-member" x="8" y="70">- runConsoleMode(): void</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- PACKAGE: UI                                               -->
+  <!-- ========================================================= -->
+  <g id="pkg-UI">
+    <rect class="pkg-tab" x="30" y="160" width="80" height="22" />
+    <text class="pkg-title" x="40" y="176">UI</text>
+    <rect class="pkg-body" x="30" y="182" width="1560" height="310" />
+
+    <!-- Application (JavaFX external base class) -->
+    <g id="cls-Application" transform="translate(55, 200)">
+      <rect class="cls-box" x="0" y="0" width="200" height="52" />
+      <text class="cls-stereo" x="100" y="17">&lt;&lt;javafx.application&gt;&gt;</text>
+      <text class="cls-name" x="100" y="34">Application</text>
+    </g>
+
+    <!-- StackPane (JavaFX external base class) -->
+    <g id="cls-StackPane" transform="translate(685, 198)">
+      <rect class="cls-box" x="0" y="0" width="200" height="52" />
+      <text class="cls-stereo" x="100" y="17">&lt;&lt;javafx.scene.layout&gt;&gt;</text>
+      <text class="cls-name" x="100" y="34">StackPane</text>
+    </g>
+
+    <!-- TwentyOneApp -->
+    <g id="cls-TwentyOneApp" transform="translate(55, 285)">
+      <rect class="cls-box" x="0" y="0" width="310" height="190" />
+      <text class="cls-name" x="155" y="20">TwentyOneApp</text>
+      <line class="cls-sep" x1="0" y1="28" x2="310" y2="28" />
+      <text class="cls-member" x="8" y="45">- primaryStage: Stage</text>
+      <text class="cls-member" x="8" y="60">- playerName: String</text>
+      <text class="cls-member" x="8" y="75">- discoveryService: LanDiscoveryService</text>
+      <text class="cls-member" x="8" y="90">- p2pManager: P2PManager</text>
+      <text class="cls-member" x="8" y="105">- localRelayServer: RailwayRelayServer</text>
+      <line class="cls-sep" x1="0" y1="115" x2="310" y2="115" />
+      <text class="cls-member" x="8" y="132">+ start(primaryStage: Stage): void</text>
+      <text class="cls-member" x="8" y="147">+ showMainMenu(): void</text>
+      <text class="cls-member" x="8" y="162">+ showLobby(): void</text>
+      <text class="cls-member" x="8" y="177">+ showGameTable(isHost: boolean): void</text>
+    </g>
+
+    <!-- MainMenuView -->
+    <g id="cls-MainMenuView" transform="translate(395, 295)">
+      <rect class="cls-box" x="0" y="0" width="225" height="125" />
+      <text class="cls-name" x="112" y="20">MainMenuView</text>
+      <line class="cls-sep" x1="0" y1="28" x2="225" y2="28" />
+      <text class="cls-member" x="8" y="45">- app: TwentyOneApp</text>
+      <text class="cls-member" x="8" y="60">- carouselTimer: AnimationTimer</text>
+      <text class="cls-member" x="8" y="75">- optionsOverlay: StackPane</text>
+      <line class="cls-sep" x1="0" y1="84" x2="225" y2="84" />
+      <text class="cls-member" x="8" y="101">+ MainMenuView(app: TwentyOneApp)</text>
+      <text class="cls-member" x="8" y="116">+ stopAnimation(): void</text>
+    </g>
+
+    <!-- LobbyView -->
+    <g id="cls-LobbyView" transform="translate(650, 295)">
+      <rect class="cls-box" x="0" y="0" width="270" height="140" />
+      <text class="cls-name" x="135" y="20">LobbyView</text>
+      <line class="cls-sep" x1="0" y1="28" x2="270" y2="28" />
+      <text class="cls-member" x="8" y="45">- app: TwentyOneApp</text>
+      <text class="cls-member" x="8" y="60">- discoveryService: LanDiscoveryService</text>
+      <text class="cls-member" x="8" y="75">- p2pManager: P2PManager</text>
+      <text class="cls-member" x="8" y="90">- hostsListContainer: VBox</text>
+      <line class="cls-sep" x1="0" y1="99" x2="270" y2="99" />
+      <text class="cls-member" x="8" y="116">+ LobbyView(app, discovery, p2p)</text>
+      <text class="cls-member" x="8" y="131">+ stopAllScanning(): void</text>
+    </g>
+
+    <!-- GameTableView -->
+    <g id="cls-GameTableView" transform="translate(950, 295)">
+      <rect class="cls-box" x="0" y="0" width="265" height="140" />
+      <text class="cls-name" x="132" y="20">GameTableView</text>
+      <line class="cls-sep" x1="0" y1="28" x2="265" y2="28" />
+      <text class="cls-member" x="8" y="45">- app: TwentyOneApp</text>
+      <text class="cls-member" x="8" y="60">- p2pManager: P2PManager</text>
+      <text class="cls-member" x="8" y="75">- latestSnapshot: GameStateSnapshot</text>
+      <text class="cls-member" x="8" y="90">- isHost: boolean</text>
+      <line class="cls-sep" x1="0" y1="99" x2="265" y2="99" />
+      <text class="cls-member" x="8" y="116">+ GameTableView(app, p2p, isHost)</text>
+      <text class="cls-member" x="8" y="131">+ updateState(snap: GameStateSnapshot)</text>
+    </g>
+
+    <!-- AssetManager -->
+    <g id="cls-AssetManager" transform="translate(1245, 200)">
+      <rect class="cls-box" x="0" y="0" width="320" height="86" />
+      <text class="cls-name" x="160" y="20">AssetManager</text>
+      <line class="cls-sep" x1="0" y1="28" x2="320" y2="28" />
+      <text class="cls-member" x="8" y="45">- cache: Map&lt;String, Image&gt;</text>
+      <line class="cls-sep" x1="0" y1="53" x2="320" y2="53" />
+      <text class="cls-member" x="8" y="70">+ getNumberCardImage(...), getTrumpCardImage(...)</text>
+    </g>
+
+    <!-- PixelUI -->
+    <g id="cls-PixelUI" transform="translate(1245, 298)">
+      <rect class="cls-box" x="0" y="0" width="320" height="86" />
+      <text class="cls-name" x="160" y="20">PixelUI</text>
+      <line class="cls-sep" x1="0" y1="28" x2="320" y2="28" />
+      <text class="cls-member" x="8" y="45">- fontCache: Map&lt;String, Font&gt;</text>
+      <line class="cls-sep" x1="0" y1="53" x2="320" y2="53" />
+      <text class="cls-member" x="8" y="70">+ font(...), label(...), pixelButton(...)</text>
+    </g>
+
+    <!-- SoundManager -->
+    <g id="cls-SoundManager" transform="translate(1245, 396)">
+      <rect class="cls-box" x="0" y="0" width="320" height="84" />
+      <text class="cls-name" x="160" y="20">SoundManager</text>
+      <line class="cls-sep" x1="0" y1="28" x2="320" y2="28" />
+      <text class="cls-member" x="8" y="45">- bgmPlayer: MediaPlayer</text>
+      <line class="cls-sep" x1="0" y1="53" x2="320" y2="53" />
+      <text class="cls-member" x="8" y="70">+ playBgm(), fadeOutAndPause(...), setVolume(...)</text>
+    </g>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- PACKAGE: Net                                              -->
+  <!-- ========================================================= -->
+  <g id="pkg-Net">
+    <rect class="pkg-tab" x="30" y="520" width="80" height="22" />
+    <text class="pkg-title" x="40" y="536">Net</text>
+    <rect class="pkg-body" x="30" y="542" width="1560" height="255" />
+
+    <!-- P2PManager -->
+    <g id="cls-P2PManager" transform="translate(55, 560)">
+      <rect class="cls-box" x="0" y="0" width="325" height="215" />
+      <text class="cls-name" x="162" y="20">P2PManager</text>
+      <line class="cls-sep" x1="0" y1="28" x2="325" y2="28" />
+      <text class="cls-member" x="8" y="45">- active: boolean</text>
+      <text class="cls-member" x="8" y="60">- isHost: boolean</text>
+      <text class="cls-member" x="8" y="75">- hostPlayer: player</text>
+      <text class="cls-member" x="8" y="90">- clientPlayer: player</text>
+      <text class="cls-member" x="8" y="105">- listener: Listener</text>
+      <text class="cls-member" x="8" y="120">- latestSnapshot: GameStateSnapshot</text>
+      <line class="cls-sep" x1="0" y1="129" x2="325" y2="129" />
+      <text class="cls-member" x="8" y="146">+ startHost(rules, port, listener): int</text>
+      <text class="cls-member" x="8" y="161">+ connect(host, port, name, listener): void</text>
+      <text class="cls-member" x="8" y="176">+ sendAction(action: String): void</text>
+      <text class="cls-member" x="8" y="191">+ close(): void</text>
+      <text class="cls-member" x="8" y="206">+ &lt;&lt;interface&gt;&gt; Listener, PublicRoom</text>
+    </g>
+
+    <!-- GameStateSnapshot -->
+    <g id="cls-GameStateSnapshot" transform="translate(415, 560)">
+      <rect class="cls-box" x="0" y="0" width="315" height="215" />
+      <text class="cls-name" x="157" y="20">GameStateSnapshot</text>
+      <line class="cls-sep" x1="0" y1="28" x2="315" y2="28" />
+      <text class="cls-member" x="8" y="45">+ myName, enemyName: String</text>
+      <text class="cls-member" x="8" y="60">+ myChips, enemyChips, targetScore: int</text>
+      <text class="cls-member" x="8" y="75">+ myTurn, roundOver, gameOver: boolean</text>
+      <text class="cls-member" x="8" y="90">+ myCards, enemyCards: List&lt;CardView&gt;</text>
+      <text class="cls-member" x="8" y="105">+ myTrumps: List&lt;TrumpView&gt;</text>
+      <text class="cls-member" x="8" y="120">+ playedTrumps: List&lt;PlayedTrumpView&gt;</text>
+      <line class="cls-sep" x1="0" y1="129" x2="315" y2="129" />
+      <text class="cls-member" x="8" y="146">+ fromGameState(viewer, opp): Snapshot</text>
+      <text class="cls-member" x="8" y="161">+ serialize(): String</text>
+      <text class="cls-member" x="8" y="176">+ deserialize(raw: String): Snapshot</text>
+      <text class="cls-member" x="8" y="196">+ CardView, TrumpView, PlayedTrumpView</text>
+    </g>
+
+    <!-- GameRules -->
+    <g id="cls-GameRules" transform="translate(765, 560)">
+      <rect class="cls-box" x="0" y="0" width="250" height="145" />
+      <text class="cls-name" x="125" y="20">GameRules</text>
+      <line class="cls-sep" x1="0" y1="28" x2="250" y2="28" />
+      <text class="cls-member" x="8" y="45">+ hostName: String</text>
+      <text class="cls-member" x="8" y="60">+ idJudge: byte</text>
+      <text class="cls-member" x="8" y="75">+ betMode: byte</text>
+      <text class="cls-member" x="8" y="90">+ initialChips: byte</text>
+      <text class="cls-member" x="8" y="105">+ turnTimeLimitSeconds: int</text>
+      <line class="cls-sep" x1="0" y1="114" x2="250" y2="114" />
+      <text class="cls-member" x="8" y="131">+ GameRules(hostName, ...)</text>
+    </g>
+
+    <!-- LanDiscoveryService -->
+    <g id="cls-LanDiscoveryService" transform="translate(1050, 560)">
+      <rect class="cls-box" x="0" y="0" width="265" height="175" />
+      <text class="cls-name" x="132" y="20">LanDiscoveryService</text>
+      <line class="cls-sep" x1="0" y1="28" x2="265" y2="28" />
+      <text class="cls-member" x="8" y="45">+ DISCOVERY_PORT: int = 44455</text>
+      <text class="cls-member" x="8" y="60">- running: boolean</text>
+      <text class="cls-member" x="8" y="75">- discoveredHosts: Map&lt;String, ...&gt;</text>
+      <line class="cls-sep" x1="0" y1="84" x2="265" y2="84" />
+      <text class="cls-member" x="8" y="101">+ startHostingBroadcast(rules, port)</text>
+      <text class="cls-member" x="8" y="116">+ startScanning(onUpdate): void</text>
+      <text class="cls-member" x="8" y="131">+ stop(): void</text>
+      <text class="cls-member" x="8" y="156">+ DiscoveredHost</text>
+    </g>
+
+    <!-- RailwayRelayServer -->
+    <g id="cls-RailwayRelayServer" transform="translate(1345, 560)">
+      <rect class="cls-box" x="0" y="0" width="225" height="175" />
+      <text class="cls-name" x="112" y="20">RailwayRelayServer</text>
+      <line class="cls-sep" x1="0" y1="28" x2="225" y2="28" />
+      <text class="cls-member" x="8" y="45">- rooms: Map&lt;String, Room&gt;</text>
+      <text class="cls-member" x="8" y="60">- port: int</text>
+      <line class="cls-sep" x1="0" y1="70" x2="225" y2="70" />
+      <text class="cls-member" x="8" y="87">+ main(args: String[]): void</text>
+      <text class="cls-member" x="8" y="102">+ start(): void</text>
+      <text class="cls-member" x="8" y="117">+ stop(): void</text>
+      <text class="cls-member" x="8" y="142">- Room, WsSession, Role</text>
+    </g>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- PACKAGE: Game & Game.TrumpAtribs                          -->
+  <!-- ========================================================= -->
+  <g id="pkg-Game">
+    <rect class="pkg-tab" x="30" y="825" width="80" height="22" />
+    <text class="pkg-title" x="40" y="841">Game</text>
+    <rect class="pkg-body" x="30" y="847" width="1560" height="345" />
+
+    <!-- config -->
+    <g id="cls-config" transform="translate(55, 870)">
+      <rect class="cls-box" x="0" y="0" width="340" height="295" />
+      <text class="cls-name" x="170" y="20">config</text>
+      <line class="cls-sep" x1="0" y1="28" x2="340" y2="28" />
+      <text class="cls-member" x="8" y="45">+ JUDGE_HOST, JUDGE_BANK, JUDGE_MAFIA</text>
+      <text class="cls-member" x="8" y="60">+ BET_SINGLE, BET_DOUBLE: byte</text>
+      <text class="cls-member" x="8" y="75">- idJudge, betMode, currentBet: byte</text>
+      <text class="cls-member" x="8" y="90">- player1, player2: player</text>
+      <text class="cls-member" x="8" y="105">- currentPlayer, nextPlayer: player</text>
+      <text class="cls-member" x="8" y="120">- numberCardScore: byte</text>
+      <text class="cls-member" x="8" y="135">- inGame, roundOver: boolean</text>
+      <text class="cls-member" x="8" y="150">- playedTrumpsHistory: List&lt;PlayedTrumpRecord&gt;</text>
+      <line class="cls-sep" x1="0" y1="159" x2="340" y2="159" />
+      <text class="cls-member" x="8" y="176">+ setConfiguration(...): void</text>
+      <text class="cls-member" x="8" y="191">+ startRound(): void</text>
+      <text class="cls-member" x="8" y="206">+ endRound(): void</text>
+      <text class="cls-member" x="8" y="221">+ nextTurn(): void</text>
+      <text class="cls-member" x="8" y="236">+ isInGame(), isRoundOver(): boolean</text>
+      <text class="cls-member" x="8" y="261">+ PlayedTrumpRecord, RoundSummary</text>
+    </g>
+
+    <!-- player -->
+    <g id="cls-player" transform="translate(435, 870)">
+      <rect class="cls-box" x="0" y="0" width="320" height="295" />
+      <text class="cls-name" x="160" y="20">player</text>
+      <line class="cls-sep" x1="0" y1="28" x2="320" y2="28" />
+      <text class="cls-member" x="8" y="45">- name: String</text>
+      <text class="cls-member" x="8" y="60">- chips: byte</text>
+      <text class="cls-member" x="8" y="75">- stood: boolean</text>
+      <text class="cls-member" x="8" y="90">- personalBet: byte</text>
+      <text class="cls-member" x="8" y="105">- trumpCards: Map&lt;trumpCard, Byte&gt;</text>
+      <text class="cls-member" x="8" y="120">- trumpsInUse: ArrayList&lt;trumpCard&gt;</text>
+      <text class="cls-member" x="8" y="135">- numberCards: ArrayList&lt;numberCard&gt;</text>
+      <line class="cls-sep" x1="0" y1="144" x2="320" y2="144" />
+      <text class="cls-member" x="8" y="161">+ player(name: String, chips: byte)</text>
+      <text class="cls-member" x="8" y="176">+ drawNumber(): void</text>
+      <text class="cls-member" x="8" y="191">+ keepHand(): void</text>
+      <text class="cls-member" x="8" y="206">+ useTrump(tc: trumpCard): void</text>
+      <text class="cls-member" x="8" y="221">+ addNumber(n: byte), removeNumber(n)</text>
+      <text class="cls-member" x="8" y="236">+ getTotalNumberSum(): int</text>
+      <text class="cls-member" x="8" y="251">+ isBusted(): boolean</text>
+      <text class="cls-member" x="8" y="266">+ hasSkullCard(): boolean</text>
+    </g>
+
+    <!-- numberCard -->
+    <g id="cls-numberCard" transform="translate(800, 870)">
+      <rect class="cls-box" x="0" y="0" width="275" height="165" />
+      <text class="cls-name" x="137" y="20">numberCard</text>
+      <line class="cls-sep" x1="0" y1="28" x2="275" y2="28" />
+      <text class="cls-member" x="8" y="45">+ SKULL_CARD: byte = 99</text>
+      <text class="cls-member" x="8" y="60">- number: byte</text>
+      <text class="cls-member" x="8" y="75">- hiddenTo: player</text>
+      <text class="cls-member" x="8" y="90">- pool: Set&lt;numberCard&gt;</text>
+      <line class="cls-sep" x1="0" y1="99" x2="275" y2="99" />
+      <text class="cls-member" x="8" y="116">+ numberCard(number: byte)</text>
+      <text class="cls-member" x="8" y="131">+ getRandom(): numberCard</text>
+      <text class="cls-member" x="8" y="146">+ addToPool(n), removeFromPool(n)</text>
+    </g>
+
+    <!-- trumpCard -->
+    <g id="cls-trumpCard" transform="translate(800, 1050)">
+      <rect class="cls-box" x="0" y="0" width="275" height="130" />
+      <text class="cls-name" x="137" y="20">trumpCard</text>
+      <line class="cls-sep" x1="0" y1="28" x2="275" y2="28" />
+      <text class="cls-member" x="8" y="45">- name, description: String</text>
+      <text class="cls-member" x="8" y="60">- type: trumpType</text>
+      <text class="cls-member" x="8" y="75">- effect: trumpEffect</text>
+      <text class="cls-member" x="8" y="90">- pool: Set&lt;trumpCard&gt;</text>
+      <line class="cls-sep" x1="0" y1="99" x2="275" y2="99" />
+      <text class="cls-member" x="8" y="116">+ getTrump(name), getRandom()</text>
+    </g>
+
+    <!-- Subpackage: Game.TrumpAtribs -->
+    <g id="pkg-TrumpAtribs">
+      <rect class="pkg-tab" x="1125" y="870" width="140" height="22" />
+      <text class="pkg-title" x="1135" y="886">Game.TrumpAtribs</text>
+      <rect class="pkg-body" x="1125" y="892" width="435" height="275" />
+
+      <!-- trumpType -->
+      <g id="cls-trumpType" transform="translate(1155, 915)">
+        <rect class="cls-box" x="0" y="0" width="220" height="92" />
+        <text class="cls-stereo" x="110" y="17">&lt;&lt;enumeration&gt;&gt;</text>
+        <text class="cls-name" x="110" y="34">trumpType</text>
+        <line class="cls-sep" x1="0" y1="42" x2="220" y2="42" />
+        <text class="cls-member" x="8" y="59">CONTINUOUS</text>
+        <text class="cls-member" x="8" y="75">INSTANTANEOUS</text>
+      </g>
+
+      <!-- trumpEffect -->
+      <g id="cls-trumpEffect" transform="translate(1155, 1035)">
+        <rect class="cls-box" x="0" y="0" width="375" height="92" />
+        <text class="cls-stereo" x="187" y="17">&lt;&lt;interface&gt;&gt;</text>
+        <text class="cls-name" x="187" y="34">trumpEffect</text>
+        <line class="cls-sep" x1="0" y1="42" x2="375" y2="42" />
+        <line class="cls-sep" x1="0" y1="50" x2="375" y2="50" />
+        <text class="cls-member" x="8" y="70">+ apply(user: player, opponent: player): void</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- RELATIONSHIPS                                             -->
+  <!-- ========================================================= -->
+
+  <!-- Main -> TwentyOneApp (dependency) -->
+  <path class="rel-dash" d="M 690,90 L 210,90 L 210,285" marker-end="url(#arrow-open)" />
+  <text class="rel-label" x="390" y="84">&lt;&lt;launches&gt;&gt;</text>
+
+  <!-- Main -> RailwayRelayServer (dependency) -->
+  <path class="rel-dash" d="M 930,90 L 1605,90 L 1605,645 L 1570,645" marker-end="url(#arrow-open)" />
+
+  <!-- TwentyOneApp extends Application -->
+  <path class="rel-solid" d="M 155,285 L 155,252" marker-end="url(#arrow-inherit)" />
+
+  <!-- MainMenuView, LobbyView, GameTableView extend StackPane -->
+  <path class="rel-solid" d="M 507,295 L 507,270 L 785,270 L 785,250" marker-end="url(#arrow-inherit)" />
+  <path class="rel-solid" d="M 785,295 L 785,250" marker-end="url(#arrow-inherit)" />
+  <path class="rel-solid" d="M 1082,295 L 1082,270 L 785,270 L 785,250" marker-end="url(#arrow-inherit)" />
+
+  <!-- TwentyOneApp -> MainMenuView / LobbyView / GameTableView -->
+  <path class="rel-solid" d="M 365,355 L 395,355" marker-end="url(#arrow-open)" />
+
+  <!-- TwentyOneApp -> P2PManager (composition) -->
+  <path class="rel-solid" d="M 170,475 L 170,560" marker-start="url(#diamond-comp)" marker-end="url(#arrow-open)" />
+
+  <!-- TwentyOneApp -> LanDiscoveryService (composition) -->
+  <path class="rel-solid" d="M 270,475 L 270,510 L 1180,510 L 1180,560" marker-start="url(#diamond-comp)" marker-end="url(#arrow-open)" />
+
+  <!-- TwentyOneApp -> RailwayRelayServer (association) -->
+  <path class="rel-solid" d="M 310,475 L 310,502 L 1455,502 L 1455,560" marker-end="url(#arrow-open)" />
+
+  <!-- LobbyView -> GameRules (dependency) -->
+  <path class="rel-dash" d="M 850,435 L 850,560" marker-end="url(#arrow-open)" />
+
+  <!-- GameTableView -> GameStateSnapshot (dependency) -->
+  <path class="rel-dash" d="M 970,435 L 970,535 L 570,535 L 570,560" marker-end="url(#arrow-open)" />
+
+  <!-- P2PManager -> GameStateSnapshot (association) -->
+  <path class="rel-solid" d="M 380,665 L 415,665" marker-end="url(#arrow-open)" />
+
+  <!-- P2PManager -> GameRules (dependency) -->
+  <path class="rel-dash" d="M 250,775 L 250,790 L 890,790 L 890,705" marker-end="url(#arrow-open)" />
+
+  <!-- P2PManager -> player (association) -->
+  <path class="rel-solid" d="M 120,775 L 120,810 L 530,810 L 530,870" marker-end="url(#arrow-open)" />
+
+  <!-- P2PManager -> config (dependency) -->
+  <path class="rel-dash" d="M 90,775 L 90,870" marker-end="url(#arrow-open)" />
+
+  <!-- config -> player (association) -->
+  <path class="rel-solid" d="M 395,970 L 435,970" marker-end="url(#arrow-open)" />
+  <text class="rel-label" x="401" y="962">2..*</text>
+
+  <!-- player -> numberCard (aggregation) -->
+  <path class="rel-solid" d="M 755,950 L 800,950" marker-start="url(#diamond-agg)" marker-end="url(#arrow-open)" />
+  <text class="rel-label" x="774" y="942">0..*</text>
+
+  <!-- player -> trumpCard (aggregation) -->
+  <path class="rel-solid" d="M 755,1105 L 800,1105" marker-start="url(#diamond-agg)" marker-end="url(#arrow-open)" />
+  <text class="rel-label" x="774" y="1097">0..*</text>
+
+  <!-- trumpCard -> trumpType (association) -->
+  <path class="rel-solid" d="M 1075,1075 L 1100,1075 L 1100,960 L 1155,960" marker-end="url(#arrow-open)" />
+
+  <!-- trumpCard -> trumpEffect (association) -->
+  <path class="rel-solid" d="M 1075,1115 L 1155,1115" marker-end="url(#arrow-open)" />
+</svg>

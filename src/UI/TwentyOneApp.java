@@ -30,7 +30,7 @@ import java.util.Properties;
 public class TwentyOneApp extends Application {
     public static final double BASE_WIDTH = 1080.0;
     public static final double BASE_HEIGHT = 680.0;
-    public static final String VERSION_TEXT = "v0.1.0";
+    public static final String VERSION_TEXT = "v0.1.2";
     public static final String DEFAULT_RAILWAY_URL = "https://twentyone-production.up.railway.app";
     private static final Path SETTINGS_FILE = Path.of(System.getProperty("user.home"), ".twentyone_settings.properties");
 
@@ -67,11 +67,9 @@ public class TwentyOneApp extends Application {
                 try {
                     SoundManager.setVolume(Double.parseDouble(savedVol));
                 } catch (NumberFormatException _) {
-                    // Ignore malformed volume
                 }
             }
         } catch (IOException _) {
-            // Ignore unreadable settings file
         }
     }
 
@@ -82,7 +80,6 @@ public class TwentyOneApp extends Application {
         try (Writer w = Files.newBufferedWriter(SETTINGS_FILE, StandardCharsets.UTF_8)) {
             props.store(w, "TwentyOne Player Settings");
         } catch (IOException _) {
-            // Ignore persistence failure on read-only environments
         }
     }
 

@@ -56,7 +56,6 @@ public class MainMenuView extends StackPane {
         mainLayout.setPadding(new Insets(0, 50, 0, 70));
         mainLayout.setSpacing(40);
 
-        // Left side: Ace 21 + 3 black-line menu options
         VBox leftColumn = new VBox(28);
         leftColumn.setAlignment(Pos.CENTER_LEFT);
         leftColumn.setPadding(new Insets(40, 0, 40, 0));
@@ -84,7 +83,6 @@ public class MainMenuView extends StackPane {
         menuButtons.getChildren().addAll(playBtn, optionsBtn, exitBtn);
         leftColumn.getChildren().addAll(ace21View, menuButtons);
 
-        // Right side: Smooth circular ascending card carousel
         Pane carouselPane = new Pane();
         HBox.setHgrow(carouselPane, Priority.ALWAYS);
         carouselPane.setMinWidth(320);

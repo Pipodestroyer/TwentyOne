@@ -83,7 +83,6 @@ public class LanDiscoveryService {
         broadcasterThread.setDaemon(true);
         broadcasterThread.start();
 
-        // Also respond immediately when a scanner sends TOP21_DISCOVER
         listenerThread = new Thread(() -> {
             try (DatagramSocket recvSocket = createReusableUdpSocket()) {
                 listenerSocket = recvSocket;
@@ -100,11 +99,9 @@ public class LanDiscoveryService {
                             recvSocket.send(reply);
                         }
                     } catch (SocketTimeoutException _) {
-                        // Poll running flag
                     }
                 }
             } catch (IOException _) {
-                // Listener port already in use or closed; periodic broadcaster still runs
             } finally {
                 listenerSocket = null;
             }
@@ -142,7 +139,6 @@ public class LanDiscoveryService {
                     }
                 }
             } catch (IOException _) {
-                // Socket closed or unavailable
             } finally {
                 listenerSocket = null;
             }
@@ -157,7 +153,6 @@ public class LanDiscoveryService {
                 sendSocket.setSoTimeout(500);
                 while (running) {
                     sendToAllBroadcasts(sendSocket, discoverBytes);
-                    // Also read direct unicast replies on sendSocket for ~700ms
                     long until = System.currentTimeMillis() + 700;
                     byte[] buf = new byte[1024];
                     while (running && System.currentTimeMillis() < until) {
@@ -181,7 +176,6 @@ public class LanDiscoveryService {
             } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
             } catch (IOException _) {
-                // Ignore transient errors
             }
         }, "lan-scanner-pinger");
         scannerThread.setDaemon(true);
